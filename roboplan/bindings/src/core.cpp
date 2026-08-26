@@ -10,6 +10,7 @@
 #include <roboplan/core/path_utils.hpp>
 #include <roboplan/core/pose_utils.hpp>
 #include <roboplan/core/scene.hpp>
+#include <roboplan/core/scene_context.hpp>
 #include <roboplan/core/scene_utils.hpp>
 #include <roboplan/core/types.hpp>
 
@@ -206,7 +207,7 @@ void init_core_scene(nanobind::module_& m) {
            "Gets the distance between two joint configurations.", "q_start"_a, "q_end"_a)
       .def("setRngSeed", &Scene::setRngSeed, "Sets the seed for the random number generator (RNG).",
            "seed"_a)
-      .def("randomPositions", &Scene::randomPositions,
+      .def("randomPositions", nanobind::overload_cast<>(&Scene::randomPositions),
            "Generates random positions for the robot model.")
       .def("randomCollisionFreePositions", &Scene::randomCollisionFreePositions,
            "Generates random collision-free positions for the robot model.", "max_samples"_a = 1000)
@@ -216,7 +217,9 @@ void init_core_scene(nanobind::module_& m) {
            "Checks if the specified joint positions are valid with respect to joint limits.", "q"_a)
       .def("clampToValidConfiguration", &Scene::clampToValidConfiguration,
            "Clamps the specified joint positions to valid joint limits.", "q"_a)
-      .def("toFullJointPositions", &Scene::toFullJointPositions,
+      .def("toFullJointPositions",
+           nanobind::overload_cast<const std::string&, const Eigen::VectorXd&>(
+               &Scene::toFullJointPositions, nanobind::const_),
            "Converts partial joint positions to full joint positions.", "group_name"_a, "q"_a)
       .def("interpolate", &Scene::interpolate, "Interpolates between two joint configurations.",
            "q_start"_a, "q_end"_a, "fraction"_a)
@@ -227,7 +230,9 @@ void init_core_scene(nanobind::module_& m) {
            "Computes the velocity vector taking one configuration to another, using Lie group "
            "operations. The inverse of integrate().",
            "q_start"_a, "q_end"_a)
-      .def("forwardKinematics", &Scene::forwardKinematics,
+      .def("forwardKinematics",
+           nanobind::overload_cast<const Eigen::VectorXd&, const std::string&, const std::string&>(
+               &Scene::forwardKinematics, nanobind::const_),
            "Calculates forward kinematics for a specific frame.", "q"_a, "frame_name"_a,
            "base_frame"_a = "")
       .def(
@@ -319,6 +324,50 @@ void init_core_scene(nanobind::module_& m) {
         ss << scene;
         return ss.str();
       });
+
+  nanobind::class_<SceneContext>(
+      m, "SceneContext",
+      "Per-thread scratch for scene queries: Pinocchio data, geometry data, the broadphase tree, "
+      "a random number generator, and a current configuration.\n\n"
+      "Each method is the Scene query of the same name, run against this context's private "
+      "scratch; give each thread its own. Adding or removing geometry, or changing collision "
+      "pairs, leaves that scratch stale and the collision queries report the mismatch, so build "
+      "a new context after such a change.")
+      // The context borrows the scene (and its model and geometry model) by reference.
+      .def(nanobind::init<const Scene&>(), nanobind::keep_alive<1, 2>(), "scene"_a,
+           "Builds a context over `scene`'s current collision geometry.")
+      .def("hasCollisions", &SceneContext::hasCollisions,
+           "Checks collisions at the given joint positions.", "q"_a, "debug"_a = false)
+      .def("computeDistances", &SceneContext::computeDistances,
+           "Computes the distance for every active collision pair into this context's data.", "q"_a,
+           "broadphase_margin"_a = std::optional<double>())
+      .def("forwardKinematics", &SceneContext::forwardKinematics,
+           "Calculates forward kinematics for a specific frame.", "q"_a, "frame_name"_a,
+           "base_frame"_a = "")
+      .def("updateFramePlacements", &SceneContext::updateFramePlacements,
+           "Runs forward kinematics and refreshes every frame placement.", "q"_a)
+      .def("computeJointJacobians", &SceneContext::computeJointJacobians,
+           "Computes the joint Jacobians for every joint.", "q"_a)
+      .def("setRngSeed", &SceneContext::setRngSeed,
+           "Sets the seed of this context's random number generator.", "seed"_a)
+      .def("randomPositions", &SceneContext::randomPositions,
+           "Generates random positions using this context's RNG.")
+      .def("randomCollisionFreePositions", &SceneContext::randomCollisionFreePositions,
+           nanobind::call_guard<nanobind::gil_scoped_release>(),
+           "Generates random collision-free positions using this context's RNG and scratch.",
+           "max_samples"_a = 1000)
+      .def("getJointPositions", &SceneContext::getJointPositions,
+           "This context's current joint positions.")
+      .def("setJointPositions", &SceneContext::setJointPositions,
+           "Sets this context's current joint positions.", "q"_a)
+      .def("toFullJointPositions", &SceneContext::toFullJointPositions,
+           "Converts partial joint positions to full ones, filling non-group joints from this "
+           "context's current configuration.",
+           "group_name"_a, "q"_a)
+      .def("isGeometryCurrent", &SceneContext::isGeometryCurrent,
+           "Whether the scene's collision geometry is still the one this context was built from.")
+      .def("getScene", &SceneContext::getScene, nanobind::rv_policy::reference_internal,
+           "The Scene this context was built from.");
 }
 
 void init_core_path_utils(nanobind::module_& m) {
@@ -336,8 +385,7 @@ void init_core_path_utils(nanobind::module_& m) {
         nanobind::overload_cast<const Scene&, const Eigen::VectorXd&, const Eigen::VectorXd&,
                                 const double, const bool, const bool>(&hasCollisionsAlongPath),
         "Checks collisions along a specified configuration space path. Uses the Scene's own "
-        "collision scratch, so it is not safe to call concurrently with other queries on the same "
-        "Scene.",
+        "collision scratch, so it is not safe to call concurrently on one Scene.",
         "scene"_a, "q_start"_a, "q_end"_a, "max_step_size"_a, "bisection"_a = false,
         "check_endpoints"_a = true);
   m.def("computePathLength", unwrap_expected(&computePathLength),
@@ -371,8 +419,9 @@ void init_core_path_utils(nanobind::module_& m) {
       m, "PathShortcutter", "Shortcuts joint paths with random sampling and checking connections.")
       .def(nanobind::init<const std::shared_ptr<Scene>, const PathShortcuttingOptions&>(),
            "scene"_a, "options"_a)
-      .def("shortcut", &PathShortcutter::shortcut, "Attempts to shortcut a specified path.",
-           "path"_a)
+      .def("shortcut", &PathShortcutter::shortcut,
+           nanobind::call_guard<nanobind::gil_scoped_release>(),
+           "Attempts to shortcut a specified path.", "path"_a)
       .def("getPathLengths", unwrap_expected(&PathShortcutter::getPathLengths),
            "Computes configuration distances from the start to each pose in a path.", "path"_a)
       .def("getNormalizedPathScaling", unwrap_expected(&PathShortcutter::getNormalizedPathScaling),

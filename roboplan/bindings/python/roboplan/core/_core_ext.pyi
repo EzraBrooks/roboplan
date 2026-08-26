@@ -529,6 +529,63 @@ class Scene:
 
     def __repr__(self) -> str: ...
 
+class SceneContext:
+    """
+    Per-thread scratch for scene queries: Pinocchio data, geometry data, the broadphase tree, a random number generator, and a current configuration.
+
+    Each method is the Scene query of the same name, run against this context's private scratch; give each thread its own. Adding or removing geometry, or changing collision pairs, leaves that scratch stale and the collision queries report the mismatch, so build a new context after such a change.
+    """
+
+    def __init__(self, scene: Scene) -> None:
+        """Builds a context over `scene`'s current collision geometry."""
+
+    def hasCollisions(self, q: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], debug: bool = False) -> bool:
+        """Checks collisions at the given joint positions."""
+
+    def computeDistances(self, q: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], broadphase_margin: float | None = None) -> None:
+        """
+        Computes the distance for every active collision pair into this context's data.
+        """
+
+    def forwardKinematics(self, q: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], frame_name: str, base_frame: str = '') -> Annotated[NDArray[numpy.float64], dict(shape=(4, 4), order='F')]:
+        """Calculates forward kinematics for a specific frame."""
+
+    def updateFramePlacements(self, q: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> None:
+        """Runs forward kinematics and refreshes every frame placement."""
+
+    def computeJointJacobians(self, q: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> None:
+        """Computes the joint Jacobians for every joint."""
+
+    def setRngSeed(self, seed: int) -> None:
+        """Sets the seed of this context's random number generator."""
+
+    def randomPositions(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
+        """Generates random positions using this context's RNG."""
+
+    def randomCollisionFreePositions(self, max_samples: int = 1000) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')] | None:
+        """
+        Generates random collision-free positions using this context's RNG and scratch.
+        """
+
+    def getJointPositions(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
+        """This context's current joint positions."""
+
+    def setJointPositions(self, q: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> None:
+        """Sets this context's current joint positions."""
+
+    def toFullJointPositions(self, group_name: str, q: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
+        """
+        Converts partial joint positions to full ones, filling non-group joints from this context's current configuration.
+        """
+
+    def isGeometryCurrent(self) -> bool:
+        """
+        Whether the scene's collision geometry is still the one this context was built from.
+        """
+
+    def getScene(self) -> Scene:
+        """The Scene this context was built from."""
+
 @overload
 def computeFramePath(scene: Scene, q_start: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], q_end: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], frame_name: str, max_step_size: float) -> list[Annotated[NDArray[numpy.float64], dict(shape=(4, 4), order='F')]]:
     """
@@ -543,7 +600,7 @@ def computeFramePath(scene: Scene, q_vec: Sequence[Annotated[NDArray[numpy.float
 
 def hasCollisionsAlongPath(scene: Scene, q_start: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], q_end: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], max_step_size: float, bisection: bool = False, check_endpoints: bool = True) -> bool:
     """
-    Checks collisions along a specified configuration space path. Uses the Scene's own collision scratch, so it is not safe to call concurrently with other queries on the same Scene.
+    Checks collisions along a specified configuration space path. Uses the Scene's own collision scratch, so it is not safe to call concurrently on one Scene.
     """
 
 def computePathLength(scene: Scene, group_name: str, path: JointPath) -> float:

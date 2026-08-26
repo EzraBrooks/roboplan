@@ -212,14 +212,22 @@ double Scene::configurationDistance(const Eigen::VectorXd& q_start,
 
 void Scene::setRngSeed(unsigned int seed) { rng_gen_ = std::mt19937(seed); }
 
-Eigen::VectorXd Scene::randomPositions() {
+Eigen::VectorXd Scene::randomPositions() { return randomPositions(rng_gen_); }
+
+Eigen::VectorXd Scene::randomPositions(std::mt19937& rng) const {
   Eigen::VectorXd positions(model_.nq);
-  randomizeJointPositions(joint_names_, positions);
+  randomizeJointPositions(rng, joint_names_, positions);
   return positions;
 }
 
 void Scene::randomizeJointPositions(const std::vector<std::string>& joint_names,
                                     Eigen::VectorXd& q) {
+  randomizeJointPositions(rng_gen_, joint_names, q);
+}
+
+void Scene::randomizeJointPositions(std::mt19937& rng_gen,
+                                    const std::vector<std::string>& joint_names,
+                                    Eigen::VectorXd& q) const {
   for (const auto& joint_name : joint_names) {
     const auto& info = joint_info_map_.at(joint_name);
     if (info.mimic_info) {
@@ -233,7 +241,7 @@ void Scene::randomizeJointPositions(const std::vector<std::string>& joint_names,
     case JointType::CONTINUOUS: {
       // Special case for continuous joints, since the format is [cos(theta), sin(theta)].
       const auto angle =
-          std::uniform_real_distribution<double>(-std::numbers::pi, std::numbers::pi)(rng_gen_);
+          std::uniform_real_distribution<double>(-std::numbers::pi, std::numbers::pi)(rng_gen);
       q(q_idx) = std::cos(angle);
       q(q_idx + 1) = std::sin(angle);
       break;
@@ -246,10 +254,10 @@ void Scene::randomizeJointPositions(const std::vector<std::string>& joint_names,
           lo = -kDefaultPlanarJointTranslationLimit;
           hi = kDefaultPlanarJointTranslationLimit;
         }
-        q(q_idx + dof) = std::uniform_real_distribution<double>(lo, hi)(rng_gen_);
+        q(q_idx + dof) = std::uniform_real_distribution<double>(lo, hi)(rng_gen);
       }
       const auto angle =
-          std::uniform_real_distribution<double>(-std::numbers::pi, std::numbers::pi)(rng_gen_);
+          std::uniform_real_distribution<double>(-std::numbers::pi, std::numbers::pi)(rng_gen);
       q(q_idx + 2) = std::cos(angle);
       q(q_idx + 3) = std::sin(angle);
       break;
@@ -258,7 +266,7 @@ void Scene::randomizeJointPositions(const std::vector<std::string>& joint_names,
       for (size_t dof = 0; dof < info.num_position_dofs; ++dof) {
         const auto& lo = info.limits.min_position[dof];
         const auto& hi = info.limits.max_position[dof];
-        q(q_idx + dof) = std::uniform_real_distribution<double>(lo, hi)(rng_gen_);
+        q(q_idx + dof) = std::uniform_real_distribution<double>(lo, hi)(rng_gen);
       }
       break;
     }
@@ -276,6 +284,10 @@ std::optional<Eigen::VectorXd> Scene::randomCollisionFreePositions(size_t max_sa
 }
 
 void Scene::rebuildBroadphaseManager() {
+  // Any caller that reaches here changed the number of geometries or collision pairs, which is
+  // exactly what makes an existing SceneContext's fixed-size scratch the wrong shape.
+  ++geometry_version_;
+
   // The manager caches AABB-tree state and pointers into collision_model_/collision_model_data_,
   // so it is rebuilt from scratch whenever the collision data is (re)assigned.
   broadphase_manager_.emplace(&model_, &collision_model_, &collision_model_data_);
@@ -299,23 +311,7 @@ bool Scene::hasCollisions(const Eigen::VectorXd& q, const bool debug) const {
   // Debug path: evaluate every pair with the naive backend (no stop-at-first) so that all
   // individual colliding pairs can be printed. The broadphase fast path stops at the first
   // collision and therefore cannot enumerate every colliding pair.
-  pinocchio::updateGeometryPlacements(model_, model_data_, collision_model_, collision_model_data_,
-                                      q);
-  const auto result =
-      pinocchio::computeCollisions(model_, model_data_, collision_model_, collision_model_data_, q,
-                                   /* stop_at_first_collision*/ false);
-
-  for (size_t k = 0; k < collision_model_.collisionPairs.size(); ++k) {
-    const auto& cp = collision_model_.collisionPairs.at(k);
-    const auto& cr = collision_model_data_.collisionResults.at(k);
-    if (cr.isCollision()) {
-      const auto& body1 = collision_model_.geometryObjects.at(cp.first).name;
-      const auto& body2 = collision_model_.geometryObjects.at(cp.second).name;
-      std::cout << "Collision detected between " << body1 << " and " << body2 << std::endl;
-    }
-  }
-
-  return result;
+  return computeCollisionsVerbose(model_, model_data_, collision_model_, collision_model_data_, q);
 }
 
 void Scene::computeCollisionDistances(const Eigen::VectorXd& q) const {
@@ -427,7 +423,12 @@ Eigen::VectorXd Scene::clampToValidConfiguration(const Eigen::VectorXd& q) const
 
 Eigen::VectorXd Scene::toFullJointPositions(const std::string& group_name,
                                             const Eigen::VectorXd& q) const {
-  Eigen::VectorXd q_out = cur_state_.positions;
+  return toFullJointPositions(group_name, q, cur_state_.positions);
+}
+
+Eigen::VectorXd Scene::toFullJointPositions(const std::string& group_name, const Eigen::VectorXd& q,
+                                            const Eigen::VectorXd& q_reference) const {
+  Eigen::VectorXd q_out = q_reference;
 
   const auto maybe_group_info = getJointGroupInfo(group_name);
   if (!maybe_group_info) {
@@ -472,18 +473,24 @@ Eigen::VectorXd Scene::difference(const Eigen::VectorXd& q_start,
 
 Eigen::Matrix4d Scene::forwardKinematics(const Eigen::VectorXd& q, const std::string& frame_name,
                                          const std::string& base_frame) const {
+  return forwardKinematics(model_data_, q, frame_name, base_frame);
+}
+
+Eigen::Matrix4d Scene::forwardKinematics(pinocchio::Data& model_data, const Eigen::VectorXd& q,
+                                         const std::string& frame_name,
+                                         const std::string& base_frame) const {
   const auto maybe_frame_id = getFrameId(frame_name);
   if (!maybe_frame_id) {
     throw std::runtime_error("Failed to get frame ID: " + maybe_frame_id.error());
   }
   const auto frame_id = maybe_frame_id.value();
 
-  pinocchio::forwardKinematics(model_, model_data_, q);
-  pinocchio::updateFramePlacement(model_, model_data_, frame_id);
+  pinocchio::forwardKinematics(model_, model_data, q);
+  pinocchio::updateFramePlacement(model_, model_data, frame_id);
 
   // If no base_frame is specified then it's from the root frame
   if (base_frame.empty()) {
-    return model_data_.oMf.at(frame_id).toHomogeneousMatrix();
+    return model_data.oMf.at(frame_id).toHomogeneousMatrix();
   }
 
   // Otherwise compute the incremental fk from the base_frame
@@ -493,17 +500,32 @@ Eigen::Matrix4d Scene::forwardKinematics(const Eigen::VectorXd& q, const std::st
   }
   const auto base_id = maybe_base_id.value();
 
-  pinocchio::updateFramePlacement(model_, model_data_, base_id);
-  return (model_data_.oMf.at(base_id).actInv(model_data_.oMf.at(frame_id))).toHomogeneousMatrix();
+  pinocchio::updateFramePlacement(model_, model_data, base_id);
+  return (model_data.oMf.at(base_id).actInv(model_data.oMf.at(frame_id))).toHomogeneousMatrix();
 }
 
 void Scene::computeFrameJacobian(const Eigen::VectorXd& q, pinocchio::FrameIndex frame_id,
                                  pinocchio::ReferenceFrame reference_frame,
                                  Eigen::Ref<Eigen::MatrixXd> jacobian) const {
-  pinocchio::computeFrameJacobian(model_, model_data_, q, frame_id, reference_frame, jacobian);
+  computeFrameJacobian(model_data_, q, frame_id, reference_frame, jacobian);
+}
+
+void Scene::computeFrameJacobian(pinocchio::Data& model_data, const Eigen::VectorXd& q,
+                                 pinocchio::FrameIndex frame_id,
+                                 pinocchio::ReferenceFrame reference_frame,
+                                 Eigen::Ref<Eigen::MatrixXd> jacobian) const {
+  pinocchio::computeFrameJacobian(model_, model_data, q, frame_id, reference_frame, jacobian);
 }
 
 void Scene::computeRelativeFrameJacobian(const Eigen::VectorXd& q, pinocchio::FrameIndex frame_id,
+                                         const std::string& base_frame,
+                                         pinocchio::ReferenceFrame reference_frame,
+                                         Eigen::Ref<Eigen::MatrixXd> jacobian) const {
+  computeRelativeFrameJacobian(model_data_, q, frame_id, base_frame, reference_frame, jacobian);
+}
+
+void Scene::computeRelativeFrameJacobian(pinocchio::Data& model_data, const Eigen::VectorXd& q,
+                                         pinocchio::FrameIndex frame_id,
                                          const std::string& base_frame,
                                          pinocchio::ReferenceFrame reference_frame,
                                          Eigen::Ref<Eigen::MatrixXd> jacobian) const {
@@ -517,14 +539,14 @@ void Scene::computeRelativeFrameJacobian(const Eigen::VectorXd& q, pinocchio::Fr
   // This avoids toActionMatrix() convention issues between Pinocchio versions.
   Eigen::MatrixXd J_ee_lwa = Eigen::MatrixXd::Zero(6, model_.nv);
   Eigen::MatrixXd J_base_lwa = Eigen::MatrixXd::Zero(6, model_.nv);
-  pinocchio::computeFrameJacobian(model_, model_data_, q, frame_id, pinocchio::LOCAL_WORLD_ALIGNED,
+  pinocchio::computeFrameJacobian(model_, model_data, q, frame_id, pinocchio::LOCAL_WORLD_ALIGNED,
                                   J_ee_lwa);
-  pinocchio::computeFrameJacobian(model_, model_data_, q, base_id, pinocchio::LOCAL_WORLD_ALIGNED,
+  pinocchio::computeFrameJacobian(model_, model_data, q, base_id, pinocchio::LOCAL_WORLD_ALIGNED,
                                   J_base_lwa);
 
   // oMf for both frames was populated by the computeFrameJacobian calls above
-  const pinocchio::SE3& T_ee = model_data_.oMf.at(frame_id);
-  const pinocchio::SE3& T_base = model_data_.oMf.at(base_id);
+  const pinocchio::SE3& T_ee = model_data.oMf.at(frame_id);
+  const pinocchio::SE3& T_base = model_data.oMf.at(base_id);
 
   // World-frame relative Jacobian (at EE origin, world orientation).
   //
@@ -579,7 +601,11 @@ void Scene::computeRelativeFrameJacobian(const Eigen::VectorXd& q, pinocchio::Fr
 }
 
 void Scene::computeJointJacobians(const Eigen::VectorXd& q) const {
-  pinocchio::computeJointJacobians(model_, model_data_, q);
+  computeJointJacobians(model_data_, q);
+}
+
+void Scene::computeJointJacobians(pinocchio::Data& model_data, const Eigen::VectorXd& q) const {
+  pinocchio::computeJointJacobians(model_, model_data, q);
 }
 
 tl::expected<pinocchio::FrameIndex, std::string> Scene::getFrameId(const std::string& name) const {

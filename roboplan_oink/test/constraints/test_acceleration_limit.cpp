@@ -11,6 +11,7 @@
 #include <roboplan_oink/constraints/velocity_limit.hpp>
 #include <roboplan_oink/optimal_ik.hpp>
 #include <roboplan_oink/tasks/frame.hpp>
+#include <test_utils.hpp>
 
 namespace roboplan {
 
@@ -59,7 +60,7 @@ TEST_F(AccelerationLimitTest, Construction) {
 
 TEST_F(AccelerationLimitTest, GetNumConstraints) {
   AccelerationLimit constraint(*oink_, 0.01, Eigen::VectorXd::Ones(num_variables_) * 5.0);
-  EXPECT_EQ(constraint.getNumConstraints(*scene_), num_variables_);
+  EXPECT_EQ(constraint.getNumConstraints(posed(*oink_, *scene_)), num_variables_);
 }
 
 TEST_F(AccelerationLimitTest, ConstraintMatrixIsIdentity) {
@@ -67,7 +68,7 @@ TEST_F(AccelerationLimitTest, ConstraintMatrixIsIdentity) {
 
   Eigen::MatrixXd G(num_variables_, num_variables_);
   Eigen::VectorXd lower(num_variables_), upper(num_variables_);
-  ASSERT_TRUE(constraint.computeQpConstraints(*scene_, G, lower, upper).has_value());
+  ASSERT_TRUE(constraint.computeQpConstraints(posed(*oink_, *scene_), G, lower, upper).has_value());
 
   EXPECT_TRUE(G.isApprox(Eigen::MatrixXd::Identity(num_variables_, num_variables_)));
 }
@@ -81,7 +82,7 @@ TEST_F(AccelerationLimitTest, BoundsFromRest) {
 
   Eigen::MatrixXd G(num_variables_, num_variables_);
   Eigen::VectorXd lower(num_variables_), upper(num_variables_);
-  ASSERT_TRUE(constraint.computeQpConstraints(*scene_, G, lower, upper).has_value());
+  ASSERT_TRUE(constraint.computeQpConstraints(posed(*oink_, *scene_), G, lower, upper).has_value());
 
   for (int i = 0; i < num_variables_; ++i) {
     EXPECT_NEAR(upper(i), a_max(i) * dt * dt, 1e-12);
@@ -103,7 +104,7 @@ TEST_F(AccelerationLimitTest, BoundsCenteredOnPreviousDisplacement) {
 
   Eigen::MatrixXd G(num_variables_, num_variables_);
   Eigen::VectorXd lower(num_variables_), upper(num_variables_);
-  ASSERT_TRUE(constraint.computeQpConstraints(*scene_, G, lower, upper).has_value());
+  ASSERT_TRUE(constraint.computeQpConstraints(posed(*oink_, *scene_), G, lower, upper).has_value());
 
   const double box = a_max(0) * dt * dt;
   const double d = 0.5 * dt;
@@ -132,7 +133,7 @@ TEST_F(AccelerationLimitTest, InfiniteLimitIsUnconstrained) {
 
   Eigen::MatrixXd G(num_variables_, num_variables_);
   Eigen::VectorXd lower(num_variables_), upper(num_variables_);
-  ASSERT_TRUE(constraint.computeQpConstraints(*scene_, G, lower, upper).has_value());
+  ASSERT_TRUE(constraint.computeQpConstraints(posed(*oink_, *scene_), G, lower, upper).has_value());
 
   for (int i = 0; i < num_variables_; ++i) {
     EXPECT_TRUE(std::isinf(upper(i)) && upper(i) > 0.0);
@@ -166,7 +167,7 @@ TEST_F(AccelerationLimitTest, BrakingDistanceLimitsApproachToBound) {
 
   Eigen::MatrixXd G(num_variables_, num_variables_);
   Eigen::VectorXd lower(num_variables_), upper(num_variables_);
-  ASSERT_TRUE(constraint.computeQpConstraints(*scene_, G, lower, upper).has_value());
+  ASSERT_TRUE(constraint.computeQpConstraints(posed(*oink_, *scene_), G, lower, upper).has_value());
 
   const double accel_box = a_max(test_joint) * dt * dt;
   const double brake = dt * std::sqrt(2.0 * a_max(test_joint) * 1e-4);
@@ -204,7 +205,7 @@ TEST_F(AccelerationLimitTest, MismatchedWorkspaceSize) {
 
   Eigen::MatrixXd G(num_variables_ - 1, num_variables_);
   Eigen::VectorXd lower(num_variables_ - 1), upper(num_variables_ - 1);
-  auto result = constraint.computeQpConstraints(*scene_, G, lower, upper);
+  auto result = constraint.computeQpConstraints(posed(*oink_, *scene_), G, lower, upper);
 
   ASSERT_FALSE(result.has_value());
   EXPECT_TRUE(result.error().find("size mismatch") != std::string::npos);
@@ -223,7 +224,7 @@ TEST_F(AccelerationLimitTest, NoTargetSetLeavesBoundsUnchanged) {
 
   Eigen::MatrixXd G(num_variables_, num_variables_);
   Eigen::VectorXd lower(num_variables_), upper(num_variables_);
-  ASSERT_TRUE(constraint.computeQpConstraints(*scene_, G, lower, upper).has_value());
+  ASSERT_TRUE(constraint.computeQpConstraints(posed(*oink_, *scene_), G, lower, upper).has_value());
 
   for (int i = 0; i < num_variables_; ++i) {
     EXPECT_NEAR(upper(i), a_max(i) * dt * dt, 1e-12);
@@ -247,7 +248,7 @@ TEST_F(AccelerationLimitTest, TargetBrakingTightensSideFacingTarget) {
 
   Eigen::MatrixXd G(num_variables_, num_variables_);
   Eigen::VectorXd lower(num_variables_), upper(num_variables_);
-  ASSERT_TRUE(constraint.computeQpConstraints(*scene_, G, lower, upper).has_value());
+  ASSERT_TRUE(constraint.computeQpConstraints(posed(*oink_, *scene_), G, lower, upper).has_value());
 
   const double brake = dt * std::sqrt(2.0 * a * d);
   const double accel_box = a * dt * dt;
@@ -276,7 +277,7 @@ TEST_F(AccelerationLimitTest, TargetBrakingClampedToAchievableDeceleration) {
 
   Eigen::MatrixXd G(num_variables_, num_variables_);
   Eigen::VectorXd lower(num_variables_), upper(num_variables_);
-  ASSERT_TRUE(constraint.computeQpConstraints(*scene_, G, lower, upper).has_value());
+  ASSERT_TRUE(constraint.computeQpConstraints(posed(*oink_, *scene_), G, lower, upper).has_value());
 
   const double accel_lo = 1.0 * dt - a * dt * dt;
   const double accel_hi = 1.0 * dt + a * dt * dt;
@@ -303,7 +304,7 @@ TEST_F(AccelerationLimitTest, TargetBrakingIsOneSidedAfterOvershoot) {
 
   Eigen::MatrixXd G(num_variables_, num_variables_);
   Eigen::VectorXd lower(num_variables_), upper(num_variables_);
-  ASSERT_TRUE(constraint.computeQpConstraints(*scene_, G, lower, upper).has_value());
+  ASSERT_TRUE(constraint.computeQpConstraints(posed(*oink_, *scene_), G, lower, upper).has_value());
 
   const double accel_hi = 1.0 * dt + a * dt * dt;
   for (int i = 0; i < num_variables_; ++i) {
@@ -328,7 +329,8 @@ TEST_F(AccelerationLimitTest, TargetBrakingDoesNotBlockFinalApproach) {
 
     Eigen::MatrixXd G(num_variables_, num_variables_);
     Eigen::VectorXd lower(num_variables_), upper(num_variables_);
-    ASSERT_TRUE(constraint.computeQpConstraints(*scene_, G, lower, upper).has_value());
+    ASSERT_TRUE(
+        constraint.computeQpConstraints(posed(*oink_, *scene_), G, lower, upper).has_value());
     EXPECT_GE(upper(0), d) << "braking bound must admit the remaining step d=" << d;
   }
 }
@@ -346,7 +348,8 @@ TEST_F(AccelerationLimitTest, ClearingTargetDisablesTargetBraking) {
     AccelerationLimit constraint(*oink_, dt, a_max);
     constraint.setTargetDisplacement(Eigen::VectorXd::Constant(num_variables_, 1e-9));
     ASSERT_TRUE(constraint.delta_q_target.has_value());
-    ASSERT_TRUE(constraint.computeQpConstraints(*scene_, G, lower, upper).has_value());
+    ASSERT_TRUE(
+        constraint.computeQpConstraints(posed(*oink_, *scene_), G, lower, upper).has_value());
     ASSERT_LT(upper(0), accel_box) << "target should be binding before it is cleared";
 
     if (use_reset) {
@@ -356,7 +359,8 @@ TEST_F(AccelerationLimitTest, ClearingTargetDisablesTargetBraking) {
     }
     EXPECT_FALSE(constraint.delta_q_target.has_value());
 
-    ASSERT_TRUE(constraint.computeQpConstraints(*scene_, G, lower, upper).has_value());
+    ASSERT_TRUE(
+        constraint.computeQpConstraints(posed(*oink_, *scene_), G, lower, upper).has_value());
     for (int i = 0; i < num_variables_; ++i) {
       EXPECT_NEAR(upper(i), accel_box, 1e-12);
       EXPECT_NEAR(lower(i), -accel_box, 1e-12);
@@ -400,7 +404,8 @@ TEST_F(AccelerationLimitTest, BoundsAreAlwaysFeasible) {
     for (const double d : {-1.0, -1e-9, 0.0, 1e-9, 1.0}) {
       constraint.setLastVelocity(Eigen::VectorXd::Constant(num_variables_, v));
       constraint.setTargetDisplacement(Eigen::VectorXd::Constant(num_variables_, d));
-      ASSERT_TRUE(constraint.computeQpConstraints(*scene_, G, lower, upper).has_value());
+      ASSERT_TRUE(
+          constraint.computeQpConstraints(posed(*oink_, *scene_), G, lower, upper).has_value());
       for (int i = 0; i < num_variables_; ++i) {
         EXPECT_LE(lower(i), upper(i)) << "empty box at v=" << v << " d=" << d << " joint " << i;
       }
