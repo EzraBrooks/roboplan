@@ -1,6 +1,7 @@
 from collections.abc import Sequence
 import enum
 import os
+import pathlib
 from typing import Annotated, overload
 
 import numpy
@@ -395,11 +396,42 @@ class OcTree:
 
     def __init__(self, boxes: Sequence[Annotated[NDArray[numpy.float64], dict(shape=(6), order='C')]], resolution: float) -> None: ...
 
+class UrdfSceneDescription:
+    """Paths to a URDF robot description and its SRDF configuration."""
+
+    def __init__(self, urdf_path: str | os.PathLike, srdf_path: str | os.PathLike) -> None: ...
+
+    @property
+    def urdf_path(self) -> pathlib.Path: ...
+
+    @urdf_path.setter
+    def urdf_path(self, arg: str | os.PathLike, /) -> None: ...
+
+    @property
+    def srdf_path(self) -> pathlib.Path: ...
+
+    @srdf_path.setter
+    def srdf_path(self, arg: str | os.PathLike, /) -> None: ...
+
+class MjcfSceneDescription:
+    """Path to an MJCF robot description."""
+
+    def __init__(self, mjcf_path: str | os.PathLike) -> None: ...
+
+    @property
+    def mjcf_path(self) -> pathlib.Path: ...
+
+    @mjcf_path.setter
+    def mjcf_path(self, arg: str | os.PathLike, /) -> None: ...
+
 class Scene:
     """Primary scene representation for planning and control."""
 
     @overload
-    def __init__(self, name: str, urdf_path: str | os.PathLike, srdf_path: str | os.PathLike, package_paths: Sequence[str | os.PathLike] = [], yaml_config_path: str | os.PathLike = ...) -> None: ...
+    def __init__(self, name: str, description: UrdfSceneDescription, package_paths: Sequence[str | os.PathLike] = [], yaml_config_path: str | os.PathLike = ...) -> None: ...
+
+    @overload
+    def __init__(self, name: str, description: MjcfSceneDescription, yaml_config_path: str | os.PathLike = ...) -> None: ...
 
     @overload
     def __init__(self, name: str, urdf: str, srdf: str, package_paths: Sequence[str | os.PathLike] = [], yaml_config_path: str | os.PathLike = ...) -> None: ...

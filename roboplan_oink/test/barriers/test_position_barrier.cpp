@@ -36,8 +36,9 @@ protected:
     srdf_path_ = model_prefix / "ur_robot_model" / "ur5_gripper.srdf";
     package_paths_ = {example_models::get_package_share_dir()};
     yaml_config_path_ = model_prefix / "ur_robot_model" / "ur5_config.yaml";
-    scene_ = std::make_shared<Scene>("test_scene", urdf_path_, srdf_path_, package_paths_,
-                                     yaml_config_path_);
+    scene_ = std::make_shared<Scene>(
+        "test_scene", UrdfSceneDescription{.urdf_path = urdf_path_, .srdf_path = srdf_path_},
+        package_paths_, yaml_config_path_);
     oink_ = std::make_shared<Oink>(*scene_);
 
     num_variables_ = scene_->getModel().nv;
