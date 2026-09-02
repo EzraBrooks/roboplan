@@ -45,7 +45,7 @@ from common import get_home_configuration, get_model_data
 from pinocchio.visualize import ViserVisualizer
 from pynput import keyboard
 
-from roboplan.core import CartesianConfiguration, Scene
+from roboplan.core import CartesianConfiguration, Scene, UrdfSceneDescription
 from roboplan.example_models import get_package_share_dir
 from roboplan.filters import SE3LowPassFilter
 from roboplan.optimal_ik import (
@@ -330,8 +330,7 @@ def main(
 
     scene = Scene(
         "teleop_scene",
-        urdf=urdf_xml,
-        srdf=srdf_xml,
+        UrdfSceneDescription(urdf_xml, srdf_xml),
         package_paths=package_paths,
         yaml_config_path=model_data.yaml_config_path,
     )
