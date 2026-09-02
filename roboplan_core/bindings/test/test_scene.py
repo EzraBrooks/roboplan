@@ -4,21 +4,20 @@ Unit tests for scenes in RoboPlan.
 
 from pathlib import Path
 
-import pytest
 import numpy as np
 import pinocchio as pin
-
+import pytest
 from roboplan.core import (
-    hasCollisionsAlongPath,
     Box,
     Cylinder,
     JointType,
     Mesh,
     Scene,
     Sphere,
+    UrdfSceneDescription,
+    hasCollisionsAlongPath,
 )
 from roboplan.example_models import get_install_prefix
-
 
 URDF = """
 <robot name="robot">
@@ -72,7 +71,12 @@ def test_scene() -> Scene:
     package_paths = [roboplan_examples_dir]
     yaml_config_path = roboplan_models_dir / "ur_robot_model" / "ur5_config.yaml"
 
-    return Scene("test_scene", urdf_path, srdf_path, package_paths, yaml_config_path)
+    return Scene(
+        "test_scene",
+        UrdfSceneDescription(urdf_path, srdf_path),
+        package_paths,
+        yaml_config_path,
+    )
 
 
 def test_scene_properties(test_scene: Scene) -> None:

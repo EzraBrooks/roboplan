@@ -181,13 +181,26 @@ void init_core_geometry_wrappers(nanobind::module_& m) {
 }
 
 void init_core_scene(nanobind::module_& m) {
+  nanobind::class_<UrdfSceneDescription>(
+      m, "UrdfSceneDescription", "Paths to a URDF robot description and its SRDF configuration.")
+      .def(nanobind::init<const std::filesystem::path&, const std::filesystem::path&>(),
+           "urdf_path"_a, "srdf_path"_a)
+      .def_rw("urdf_path", &UrdfSceneDescription::urdf_path)
+      .def_rw("srdf_path", &UrdfSceneDescription::srdf_path);
+  nanobind::class_<MjcfSceneDescription>(m, "MjcfSceneDescription",
+                                         "Path to an MJCF robot description.")
+      .def(nanobind::init<const std::filesystem::path&>(), "mjcf_path"_a)
+      .def_rw("mjcf_path", &MjcfSceneDescription::mjcf_path);
+
   nanobind::class_<Scene>(m, "Scene", "Primary scene representation for planning and control.")
-      .def(nanobind::init<const std::string&, const std::filesystem::path&,
-                          const std::filesystem::path&, const std::vector<std::filesystem::path>&,
+      .def(
+          nanobind::init<const std::string&, const UrdfSceneDescription&,
+                         const std::vector<std::filesystem::path>&, const std::filesystem::path&>(),
+          "name"_a, "description"_a, "package_paths"_a = std::vector<std::filesystem::path>(),
+          "yaml_config_path"_a = std::filesystem::path())
+      .def(nanobind::init<const std::string&, const MjcfSceneDescription&,
                           const std::filesystem::path&>(),
-           "name"_a, "urdf_path"_a, "srdf_path"_a,
-           "package_paths"_a = std::vector<std::filesystem::path>(),
-           "yaml_config_path"_a = std::filesystem::path())
+           "name"_a, "description"_a, "yaml_config_path"_a = std::filesystem::path())
       // There's an ambiguity issue due to file paths vs strings in python. So to use this
       // constructor you MUST specify argument names to clarify to the bindings that you are passing
       // pre-processed string, and not filepaths.

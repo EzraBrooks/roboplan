@@ -6,6 +6,7 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
 
 #include <pinocchio/algorithm/frames.hpp>
 #include <pinocchio/algorithm/geometry.hpp>
@@ -35,6 +36,23 @@ namespace roboplan {
 /// @param name path The path to the file.
 std::string readFile(const std::filesystem::path& path);
 
+/// @brief Paths to a URDF robot description and its SRDF planning configuration.
+struct UrdfSceneDescription {
+  std::filesystem::path urdf_path;
+  std::filesystem::path srdf_path;
+};
+
+/// @brief Path to an MJCF robot description.
+struct MjcfSceneDescription {
+  std::filesystem::path mjcf_path;
+};
+
+/// @brief Extended joint limits parsed from a URDF <limit> tag.
+struct UrdfExtendedJointLimits {
+  std::optional<double> acceleration;
+  std::optional<double> jerk;
+};
+
 /// @brief Primary scene representation for planning and control.
 ///
 /// @par Thread safety
@@ -59,16 +77,14 @@ std::string readFile(const std::filesystem::path& path);
 /// For items 2. and 3., if you need thread safety, we recommend using a SceneContext.
 class Scene {
 public:
-  /// @brief Basic constructor
-  /// @param name The name of the scene.
-  /// @param urdf_path Path to the URDF file.
-  /// @param srdf_path Path to the SRDF file.
-  /// @param package_paths A vector of package paths to look for packages.
-  /// @param yaml_config_path Path to the YAML configuration file with additional information.
-  Scene(const std::string& name, const std::filesystem::path& urdf_path,
-        const std::filesystem::path& srdf_path,
+  /// @brief Builds a scene from typed URDF and SRDF paths.
+  Scene(const std::string& name, const UrdfSceneDescription& description,
         const std::vector<std::filesystem::path>& package_paths =
             std::vector<std::filesystem::path>(),
+        const std::filesystem::path& yaml_config_path = std::filesystem::path());
+
+  /// @brief Builds a scene from a typed MJCF path.
+  Scene(const std::string& name, const MjcfSceneDescription& description,
         const std::filesystem::path& yaml_config_path = std::filesystem::path());
 
   /// @brief Basic constructor with pre-parsed URDF and SRDF options.
@@ -486,6 +502,11 @@ public:
   friend std::ostream& operator<<(std::ostream& os, const Scene& scene);
 
 private:
+  void
+  initialize(const std::filesystem::path& yaml_config_path,
+             const std::unordered_map<std::string, UrdfExtendedJointLimits>& urdf_extended_limits,
+             const std::unordered_map<std::string, JointGroupInfo>& joint_group_info_map);
+
   /// @brief The name of the scene.
   std::string name_;
 
