@@ -71,11 +71,22 @@ jobs:
 
   # Build ROS docker images and run tests.
   ros_build_and_test:
+    name: "Build and Test: ROS ${{ matrix.ros_distro }} ${{ matrix.generate_python_stubs == 'ON' && 'with' || 'without' }} Python stubs"
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        ros_distro: [humble, jazzy, kilted, lyrical, rolling]
+        include:
+          - ros_distro: humble
+            generate_python_stubs: "OFF"
+          - ros_distro: jazzy
+            generate_python_stubs: "ON"
+          - ros_distro: kilted
+            generate_python_stubs: "ON"
+          - ros_distro: lyrical
+            generate_python_stubs: "ON"
+          - ros_distro: rolling
+            generate_python_stubs: "ON"
 
     runs-on: ubuntu-latest
     steps:
@@ -99,7 +110,7 @@ jobs:
           tags: roboplan_ros:${{ steps.sanitize_tag.outputs.tag }}
           build-args: |
             ROS_DISTRO=${{ matrix.ros_distro }}
-            GENERATE_PYTHON_STUBS=${{ matrix.ros_distro == 'humble' && 'OFF' || 'ON' }}
+            GENERATE_PYTHON_STUBS=${{ matrix.generate_python_stubs }}
           push: false
           load: true
           cache-from: type=gha,scope=ros-${{ matrix.ros_distro }}
