@@ -1,5 +1,4 @@
-# Shared Python install-layout policy for superbuilds. Standalone packages
-# retain their local fallback when this module is absent.
+# Shared Python install-layout policy for RoboPlan CMake packages.
 # Set ROBOPLAN_PYTHON_INSTALL_DIR to override the destination; it may be
 # relative to CMAKE_INSTALL_PREFIX or an absolute site-packages path.
 function(roboplan_get_python_install_dir result)
@@ -18,8 +17,6 @@ function(roboplan_get_python_install_dir result)
     else()
       set(${result} "${_ament_python_dir}" PARENT_SCOPE)
     endif()
-  elseif(SKBUILD)
-    set(${result} "." PARENT_SCOPE)
   else()
     find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
     # TO_CMAKE_PATH converts Windows backslashes for cmake_install.cmake.

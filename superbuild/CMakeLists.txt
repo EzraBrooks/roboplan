@@ -18,7 +18,7 @@ project(roboplan_superbuild)
 get_filename_component(ROBOPLAN_REPOSITORY_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/RoboplanSuperbuild.cmake")
-include("${CMAKE_CURRENT_SOURCE_DIR}/RoboplanPythonInstall.cmake")
+include("${ROBOPLAN_REPOSITORY_ROOT}/roboplan_common/cmake/RoboplanPythonInstall.cmake")
 
 option(ROBOPLAN_BUILD_EXAMPLES "Build the RoboPlan examples" ON)
 
