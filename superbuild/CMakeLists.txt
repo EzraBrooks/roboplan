@@ -3,7 +3,7 @@ project(roboplan_superbuild)
 
 # Superbuild: configures every RoboPlan package in one tree, so
 # build/install/test run once instead of once per package. Driven by
-# pixi.toml and scripts/build_cmake.bash. See CMakePresets.json for
+# pyproject.toml and scripts/build_cmake.bash. See CMakePresets.json for
 # compiler/linker/build-cache settings.
 #
 # Not at repo root on purpose: colcon would identify a bare CMakeLists.txt
