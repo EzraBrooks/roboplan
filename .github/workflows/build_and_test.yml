@@ -63,7 +63,7 @@ jobs:
 
   # Build ROS docker images and run tests.
   ros_build_and_test:
-    name: "Build and Test: ROS {{ matrix.ros_distro }} {{ matrix.generate_python_stubs == 'ON' ? 'with' : 'without' }} Python stubs"
+    name: "Build and Test: ROS ${{ matrix.ros_distro }} ${{ matrix.generate_python_stubs == 'ON' ? 'with' : 'without' }} Python stubs"
     timeout-minutes: 30
     strategy:
       fail-fast: false
