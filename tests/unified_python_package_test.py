@@ -263,14 +263,13 @@ def test_dependent_package_tests_keep_upstream_example_model_dependency() -> Non
         ), path
 
 
-def test_python_binding_workflow_builds_repaired_wheels_for_pr_ci() -> None:
+def test_python_binding_workflow_builds_repaired_wheels_from_callers() -> None:
     workflow = _read(".github/workflows/build-pypi-wheels.yml")
 
-    assert "pull_request:" in workflow
-    assert "push:" in workflow
-    assert "branches:" in workflow
-    assert "- main" in workflow
     assert "workflow_call:" in workflow
+    assert "pull_request:" not in workflow
+    assert "push:" not in workflow
+    assert "workflow_dispatch:" not in workflow
     assert "name: Build PyPI wheels" in workflow
     assert "PACKAGE_NAME:" not in workflow
     assert 'project["name"] != "roboplan"' in workflow

@@ -7,7 +7,7 @@ on:
 
   # Nightly job on default (main) branch
   schedule:
-    - cron: '0 0 * * *'
+    - cron: "0 0 * * *"
 
   # Whenever certain branches are pushed
   push:
@@ -22,6 +22,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  format:
+    name: Format
+    uses: ./.github/workflows/format.yml
+
+  build_pypi_wheels:
+    name: Build PyPI wheels
+    uses: ./.github/workflows/build-pypi-wheels.yml
 
   ubuntu_build_and_test:
     timeout-minutes: 30
