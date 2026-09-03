@@ -15,6 +15,12 @@ classifiers = ["License :: OSI Approved :: MIT License"]
 [project.urls]
 Homepage = "https://github.com/open-planning/roboplan"
 
+[tool.pixi.package]
+publish = true
+
+[tool.pixi.package.build]
+backend = { name = "pixi-build-cmake", version = "*" }
+
 [tool.cmeel]
 run-tests = false
 has-binaries = false
