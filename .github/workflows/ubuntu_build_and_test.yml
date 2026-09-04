@@ -1,10 +1,11 @@
 on:
   workflow_call: {}
 
-name: Ubuntu Bare CMake Build and Test
+name: Ubuntu
 
 jobs:
   ubuntu_build_and_test:
+    name: ${{ matrix.ubuntu_version }} - Build, test
     timeout-minutes: 30
     strategy:
       fail-fast: false

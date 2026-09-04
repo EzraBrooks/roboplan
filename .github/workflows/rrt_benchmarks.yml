@@ -5,6 +5,7 @@ on:
 
 jobs:
   rrt_benchmarks:
+    name: Benchmark RRT
     timeout-minutes: 30
     runs-on: ubuntu-24.04
     env:

@@ -5,6 +5,7 @@ on:
 
 jobs:
   pixi_build_and_test:
+    name: ${{ matrix.os }} - Build, test${{ matrix.clang_tidy && ', clang-tidy' || '' }}
     timeout-minutes: 30
     env:
       SCCACHE_DIR: ${{ github.workspace }}/.sccache

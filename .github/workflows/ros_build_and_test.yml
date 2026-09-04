@@ -1,11 +1,11 @@
-name: "ROS Build and Test"
+name: "Build and Test ROS"
 
 on:
   workflow_call: {}
 
 jobs:
   ros_build_and_test:
-    name: "Build and Test: ROS ${{ matrix.ros_distro }} ${{ matrix.generate_python_stubs == 'ON' && 'with' || 'without' }} Python stubs"
+    name: ${{ matrix.ros_distro }} - Build, test ${{ matrix.generate_python_stubs == 'ON' && 'with' || 'without' }} Python stubs
     timeout-minutes: 30
     strategy:
       fail-fast: false
