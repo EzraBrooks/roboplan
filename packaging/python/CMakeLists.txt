@@ -16,6 +16,7 @@ endif()
 
 roboplan_register_build_tree_packages()
 
+add_subdirectory("${ROBOPLAN_REPOSITORY_ROOT}/roboplan_common" "roboplan_common")
 add_subdirectory("${ROBOPLAN_REPOSITORY_ROOT}/roboplan_example_models" "roboplan_example_models")
 add_subdirectory("${ROBOPLAN_REPOSITORY_ROOT}/roboplan" "roboplan")
 add_subdirectory("${ROBOPLAN_REPOSITORY_ROOT}/roboplan_simple_ik" "roboplan_simple_ik")

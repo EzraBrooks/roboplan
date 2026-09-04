@@ -45,6 +45,7 @@ if(BUILD_TESTING)
   enable_testing()
 endif()
 
+add_subdirectory("${ROBOPLAN_REPOSITORY_ROOT}/roboplan_common" "roboplan_common")
 add_subdirectory("${ROBOPLAN_REPOSITORY_ROOT}/roboplan_example_models" "roboplan_example_models")
 add_subdirectory("${ROBOPLAN_REPOSITORY_ROOT}/roboplan" "roboplan")
 add_subdirectory("${ROBOPLAN_REPOSITORY_ROOT}/roboplan_simple_ik" "roboplan_simple_ik")
