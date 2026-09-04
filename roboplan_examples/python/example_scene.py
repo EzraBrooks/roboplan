@@ -2,7 +2,12 @@
 
 import numpy as np
 from common import get_model_data
-from roboplan.core import JointConfiguration, Scene, UrdfSceneDescription
+from roboplan.core import (
+    JointConfiguration,
+    Scene,
+    UrdfSceneDescription,
+    loadUrdfSceneDescription,
+)
 from roboplan.example_models import get_package_share_dir
 
 if __name__ == "__main__":
@@ -20,7 +25,7 @@ if __name__ == "__main__":
 
     scene = Scene(
         "test_scene",
-        UrdfSceneDescription(model_data.urdf_path, model_data.srdf_path),
+        loadUrdfSceneDescription(model_data.urdf_path, model_data.srdf_path),
         package_paths,
     )
     print(scene)

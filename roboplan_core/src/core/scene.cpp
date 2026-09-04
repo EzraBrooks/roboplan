@@ -33,6 +33,8 @@ constexpr double kDefaultPlanarJointTranslationLimit = 2.0;
 
 namespace roboplan {
 
+namespace {
+
 std::string readFile(const std::filesystem::path& path) {
   if (!std::filesystem::exists(path)) {
     throw std::runtime_error("File not found: " + path.string());
@@ -44,41 +46,46 @@ std::string readFile(const std::filesystem::path& path) {
   return content;
 }
 
+}  // namespace
+
+UrdfSceneDescription loadUrdfSceneDescription(const std::filesystem::path& urdf_path,
+                                              const std::filesystem::path& srdf_path) {
+  return {.urdf_xml = readFile(urdf_path), .srdf_xml = readFile(srdf_path)};
+}
+
+PinocchioSceneDescription loadMjcfModel(const std::filesystem::path& mjcf_path) {
+  PinocchioSceneDescription description;
+  pinocchio::mjcf::buildModel(mjcf_path.string(), description.model);
+  pinocchio::mjcf::buildGeom(description.model, mjcf_path.string(), pinocchio::COLLISION,
+                             description.collision_model);
+  description.collision_model.addAllCollisionPairs();
+  return description;
+}
+
 Scene::Scene(const std::string& name, const UrdfSceneDescription& description,
              const std::vector<std::filesystem::path>& package_paths,
              const std::filesystem::path& yaml_config_path)
-    : Scene(name, readFile(description.urdf_path), readFile(description.srdf_path), package_paths,
-            yaml_config_path) {}
-
-Scene::Scene(const std::string& name, const MjcfSceneDescription& description,
-             const std::filesystem::path& yaml_config_path)
     : name_{name} {
-  pinocchio::mjcf::buildModel(description.mjcf_path.string(), model_);
-  pinocchio::mjcf::buildGeom(model_, description.mjcf_path.string(), pinocchio::COLLISION,
-                             collision_model_);
-  // Pinocchio's MJCF parser does not expose MJCF contact exclusions or explicit pairs.
-  collision_model_.addAllCollisionPairs();
-  const std::unordered_map<std::string, UrdfExtendedJointLimits> urdf_extended_limits;
-  initialize(yaml_config_path, urdf_extended_limits, createDefaultJointGroupInfo(model_));
-}
-
-Scene::Scene(const std::string& name, const std::string& urdf, const std::string& srdf,
-             const std::vector<std::filesystem::path>& package_paths,
-             const std::filesystem::path& yaml_config_path)
-    : name_{name} {
-  pinocchio::urdf::buildModelFromXML(urdf, model_, /*verbose*/ false, /*mimic*/ true);
+  pinocchio::urdf::buildModelFromXML(description.urdf_xml, model_, /*verbose*/ false,
+                                     /*mimic*/ true);
 
   std::vector<std::string> package_paths_str;
   package_paths_str.reserve(package_paths.size());
   for (const auto& path : package_paths) {
     package_paths_str.push_back(path.string());
   }
-  pinocchio::urdf::buildGeom(model_, std::istringstream(urdf), pinocchio::COLLISION,
+  pinocchio::urdf::buildGeom(model_, std::istringstream(description.urdf_xml), pinocchio::COLLISION,
                              collision_model_, package_paths_str);
   collision_model_.addAllCollisionPairs();
-  pinocchio::srdf::removeCollisionPairsFromXML(model_, collision_model_, srdf);
-  initialize(yaml_config_path, parseUrdfExtendedJointLimits(urdf),
-             createJointGroupInfo(model_, srdf));
+  pinocchio::srdf::removeCollisionPairsFromXML(model_, collision_model_, description.srdf_xml);
+  initialize(yaml_config_path, parseUrdfExtendedJointLimits(description.urdf_xml),
+             createJointGroupInfo(model_, description.srdf_xml));
+}
+
+Scene::Scene(const std::string& name, const PinocchioSceneDescription& description,
+             const std::filesystem::path& yaml_config_path)
+    : name_{name}, model_{description.model}, collision_model_{description.collision_model} {
+  initialize(yaml_config_path, {}, createDefaultJointGroupInfo(model_));
 }
 
 void Scene::initialize(

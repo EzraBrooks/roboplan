@@ -32,20 +32,24 @@ namespace coal = hpp::fcl;
 
 namespace roboplan {
 
-/// @brief Returns the contents of a file as a string.
-/// @param name path The path to the file.
-std::string readFile(const std::filesystem::path& path);
-
-/// @brief Paths to a URDF robot description and its SRDF planning configuration.
+/// @brief URDF robot description and SRDF planning configuration documents.
 struct UrdfSceneDescription {
-  std::filesystem::path urdf_path;
-  std::filesystem::path srdf_path;
+  std::string urdf_xml;
+  std::string srdf_xml;
 };
 
-/// @brief Path to an MJCF robot description.
-struct MjcfSceneDescription {
-  std::filesystem::path mjcf_path;
+/// @brief Loads a URDF robot description and SRDF planning configuration from disk.
+UrdfSceneDescription loadUrdfSceneDescription(const std::filesystem::path& urdf_path,
+                                              const std::filesystem::path& srdf_path);
+
+/// @brief Pinocchio model and collision geometry used to construct a Scene.
+struct PinocchioSceneDescription {
+  pinocchio::Model model;
+  pinocchio::GeometryModel collision_model;
 };
+
+/// @brief Loads an MJCF model and its collision geometry from disk.
+PinocchioSceneDescription loadMjcfModel(const std::filesystem::path& mjcf_path);
 
 /// @brief Extended joint limits parsed from a URDF <limit> tag.
 struct UrdfExtendedJointLimits {
@@ -77,25 +81,14 @@ struct UrdfExtendedJointLimits {
 /// For items 2. and 3., if you need thread safety, we recommend using a SceneContext.
 class Scene {
 public:
-  /// @brief Builds a scene from typed URDF and SRDF paths.
+  /// @brief Builds a scene from typed URDF and SRDF documents.
   Scene(const std::string& name, const UrdfSceneDescription& description,
         const std::vector<std::filesystem::path>& package_paths =
             std::vector<std::filesystem::path>(),
         const std::filesystem::path& yaml_config_path = std::filesystem::path());
 
-  /// @brief Builds a scene from a typed MJCF path.
-  Scene(const std::string& name, const MjcfSceneDescription& description,
-        const std::filesystem::path& yaml_config_path = std::filesystem::path());
-
-  /// @brief Basic constructor with pre-parsed URDF and SRDF options.
-  /// @param name The name of the scene.
-  /// @param urdf XML String of the URDF.
-  /// @param srdf XML String of the SRDF.
-  /// @param package_paths A vector of package paths to look for packages.
-  /// @param yaml_config_path Path to the YAML configuration file with additional information.
-  Scene(const std::string& name, const std::string& urdf, const std::string& srdf,
-        const std::vector<std::filesystem::path>& package_paths =
-            std::vector<std::filesystem::path>(),
+  /// @brief Builds a scene from a prebuilt Pinocchio model and collision geometry.
+  Scene(const std::string& name, const PinocchioSceneDescription& description,
         const std::filesystem::path& yaml_config_path = std::filesystem::path());
 
   // Non-copyable and non-movable. `broadphase_manager_` caches raw pointers to this Scene's

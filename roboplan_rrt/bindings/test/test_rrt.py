@@ -11,6 +11,7 @@ from roboplan.core import (
     JointConfiguration,
     Scene,
     UrdfSceneDescription,
+    loadUrdfSceneDescription,
     computePathLength,
 )
 from roboplan.example_models import get_package_models_dir, get_package_share_dir
@@ -31,7 +32,7 @@ def test_scene() -> Scene:
     package_paths = [get_package_share_dir()]
 
     return Scene(
-        "test_scene", UrdfSceneDescription(urdf_path, srdf_path), package_paths
+        "test_scene", loadUrdfSceneDescription(urdf_path, srdf_path), package_paths
     )
 
 
