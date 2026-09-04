@@ -20,8 +20,7 @@ int main(int /*argc*/, char* /*argv*/[]) {
   const std::vector<std::filesystem::path> package_paths = {share_prefix};
 
   auto scene = std::make_shared<Scene>(
-      "example_cartesian_scene",
-      UrdfSceneDescription{.urdf_path = urdf_path, .srdf_path = srdf_path}, package_paths);
+      "example_cartesian_scene", loadUrdfSceneDescription(urdf_path, srdf_path), package_paths);
 
   // Use the current configuration as the IK seed (also the path's start pose).
   JointConfiguration q_start;

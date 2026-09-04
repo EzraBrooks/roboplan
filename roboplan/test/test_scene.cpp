@@ -45,9 +45,8 @@ protected:
     srdf_path = model_prefix / "ur_robot_model" / "ur5_gripper.srdf";
     package_paths = {example_models::get_package_share_dir()};
     yaml_config_path = model_prefix / "ur_robot_model" / "ur5_config.yaml";
-    scene = std::make_unique<Scene>(
-        "test_scene", UrdfSceneDescription{.urdf_path = urdf_path, .srdf_path = srdf_path},
-        package_paths, yaml_config_path);
+    scene = std::make_unique<Scene>("test_scene", loadUrdfSceneDescription(urdf_path, srdf_path),
+                                    package_paths, yaml_config_path);
   }
 
 public:
@@ -220,21 +219,6 @@ TEST_F(RoboPlanSceneTest, TestFrameJacobianBaseFrameNumerical) {
       << "J_rel.rightCols(2):\n"
       << J_rel.rightCols(2) << "\nJ_ee.rightCols(2):\n"
       << J_ee.rightCols(2);
-}
-
-TEST_F(RoboPlanSceneTest, TestLoadXMLStrings) {
-  // Load the sample XMLs from file as strings.
-  auto urdf_xml = readFile(urdf_path);
-  auto srdf_xml = readFile(srdf_path);
-
-  // Just make sure it is the same as when loading from file (the validation is above)
-  auto scene_xml =
-      std::make_unique<Scene>("test_scene", urdf_xml, srdf_xml, package_paths, yaml_config_path);
-  EXPECT_EQ(scene_xml->getModel().nq, scene->getModel().nq);
-  EXPECT_THAT(scene_xml->getJointNames(), scene->getJointNames());
-
-  const auto seeded_positions = scene_xml->randomPositions();
-  EXPECT_EQ(seeded_positions.size(), 6);
 }
 
 TEST_F(RoboPlanSceneTest, TestCollisionGeometry) {
@@ -595,8 +579,7 @@ TEST_F(RoboPlanSceneTest, TestPositionLimitsOverrideFromYaml) {
            "    max_position: [1.0]\n";
   }
 
-  Scene scene("override_scene",
-              UrdfSceneDescription{.urdf_path = urdf_path, .srdf_path = srdf_path}, package_paths,
+  Scene scene("override_scene", loadUrdfSceneDescription(urdf_path, srdf_path), package_paths,
               tmp_config);
 
   const auto maybe_joint_info = scene.getJointInfo("shoulder_pan_joint");
@@ -629,8 +612,8 @@ TEST_F(RoboPlanSceneTest, TestPositionLimitsOverrideInfinityFromYaml) {
            "    max_position: [.inf]\n";
   }
 
-  Scene scene("inf_scene", UrdfSceneDescription{.urdf_path = urdf_path, .srdf_path = srdf_path},
-              package_paths, tmp_config);
+  Scene scene("inf_scene", loadUrdfSceneDescription(urdf_path, srdf_path), package_paths,
+              tmp_config);
 
   const auto maybe_joint_info = scene.getJointInfo("shoulder_pan_joint");
   ASSERT_TRUE(maybe_joint_info.has_value()) << maybe_joint_info.error();
@@ -645,7 +628,7 @@ TEST_F(RoboPlanSceneTest, TestPositionLimitsOverrideInfinityFromYaml) {
   std::filesystem::remove(tmp_config);
 }
 
-TEST_F(RoboPlanSceneTest, TypedMjcfDescription) {
+TEST_F(RoboPlanSceneTest, PinocchioSceneDescription) {
   const auto mjcf_path = std::filesystem::temp_directory_path() / "roboplan_scene_mjcf.xml";
   {
     std::ofstream out(mjcf_path);
@@ -659,7 +642,7 @@ TEST_F(RoboPlanSceneTest, TypedMjcfDescription) {
 </mujoco>)";
   }
 
-  Scene scene("mjcf_scene", MjcfSceneDescription{.mjcf_path = mjcf_path});
+  Scene scene("mjcf_scene", loadMjcfModel(mjcf_path));
   EXPECT_EQ(scene.getModel().nq, 1);
   EXPECT_THAT(scene.getJointNames(), ContainerEq(std::vector<std::string>{"joint1"}));
 
@@ -675,8 +658,7 @@ TEST_F(RoboPlanSceneTest, TestPositionLimitsOverrideWrongSizeThrows) {
            "    max_position: [1.0, 2.0]\n";  // joint nv is 1, so this is invalid.
   }
 
-  EXPECT_THROW(Scene("bad_size_scene",
-                     UrdfSceneDescription{.urdf_path = urdf_path, .srdf_path = srdf_path},
+  EXPECT_THROW(Scene("bad_size_scene", loadUrdfSceneDescription(urdf_path, srdf_path),
                      package_paths, tmp_config),
                std::runtime_error);
 
