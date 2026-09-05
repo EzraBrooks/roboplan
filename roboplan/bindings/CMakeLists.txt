@@ -169,6 +169,7 @@ if(GENERATE_PYTHON_STUBS AND COMMAND nanobind_add_stub)
   # own stub generation.
   set_target_properties(_core_ext PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/pystage/roboplan/core")
+
   file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/python/roboplan/core/__init__.py"
     DESTINATION "${CMAKE_BINARY_DIR}/pystage/roboplan/core")
   set_target_properties(_filters_ext PROPERTIES
