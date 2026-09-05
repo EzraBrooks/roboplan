@@ -1,6 +1,5 @@
-# Shared superbuild helpers, used by this dir's CMakeLists.txt and by
-# ../packaging/python/CMakeLists.txt to configure multiple RoboPlan packages
-# in one add_subdirectory() tree.
+# Shared superbuild helpers for configuring all RoboPlan packages in one
+# add_subdirectory() tree.
 #
 # Each package resolves siblings via find_package(<name> REQUIRED), expecting
 # an installed package, so it stays buildable standalone. To make that work

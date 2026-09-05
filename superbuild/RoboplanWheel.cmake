@@ -1,9 +1,6 @@
-# roboplan_register_build_tree_package(s) is generic to any single-configure
-# superbuild, so it lives in the shared module also used by
-# superbuild/CMakeLists.txt.
-include("${CMAKE_CURRENT_LIST_DIR}/../../../superbuild/RoboplanSuperbuild.cmake")
+# Wheel-only setup. The package graph itself remains in superbuild/CMakeLists.txt.
 
-function(roboplan_configure_scikit_build_prefix)
+function(roboplan_prepare_wheel_build)
   find_package(Python COMPONENTS Interpreter REQUIRED)
   execute_process(
     COMMAND
@@ -45,7 +42,7 @@ function(roboplan_install_matching_libraries pattern)
   endforeach()
 endfunction()
 
-function(roboplan_configure_unified_python_wheel)
+function(roboplan_finalize_wheel)
   if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     find_program(ROBOPLAN_UNIFIED_PATCHELF patchelf REQUIRED)
   elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")

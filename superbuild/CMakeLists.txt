@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 3.22)
-project(roboplan_superbuild)
+
+set(ROBOPLAN_DISTRIBUTION_VERSION "0.0.0")
+if(DEFINED SKBUILD_PROJECT_VERSION)
+  set(ROBOPLAN_DISTRIBUTION_VERSION "${SKBUILD_PROJECT_VERSION}")
+endif()
+project(roboplan_superbuild VERSION "${ROBOPLAN_DISTRIBUTION_VERSION}")
 
 # Superbuild: configures every RoboPlan package in one tree, so
 # build/install/test run once instead of once per package. Driven by
@@ -18,6 +23,14 @@ project(roboplan_superbuild)
 get_filename_component(ROBOPLAN_REPOSITORY_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/RoboplanSuperbuild.cmake")
+
+option(ROBOPLAN_WHEEL "Build the unified relocatable Python wheel" OFF)
+option(ROBOPLAN_BUILD_EXAMPLES "Build the RoboPlan examples" ON)
+if(ROBOPLAN_WHEEL)
+  include("${CMAKE_CURRENT_SOURCE_DIR}/RoboplanWheel.cmake")
+  roboplan_prepare_wheel_build()
+endif()
+
 roboplan_register_build_tree_packages()
 
 # compile_commands.json export and colored diagnostics live in
@@ -53,4 +66,10 @@ add_subdirectory("${ROBOPLAN_REPOSITORY_ROOT}/roboplan_oink" "roboplan_oink")
 add_subdirectory("${ROBOPLAN_REPOSITORY_ROOT}/roboplan_rrt" "roboplan_rrt")
 add_subdirectory("${ROBOPLAN_REPOSITORY_ROOT}/roboplan_toppra" "roboplan_toppra")
 add_subdirectory("${ROBOPLAN_REPOSITORY_ROOT}/roboplan_cartesian_planning" "roboplan_cartesian_planning")
-add_subdirectory("${ROBOPLAN_REPOSITORY_ROOT}/roboplan_examples" "roboplan_examples")
+if(ROBOPLAN_BUILD_EXAMPLES)
+  add_subdirectory("${ROBOPLAN_REPOSITORY_ROOT}/roboplan_examples" "roboplan_examples")
+endif()
+
+if(ROBOPLAN_WHEEL)
+  roboplan_finalize_wheel()
+endif()
