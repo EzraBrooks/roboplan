@@ -23,22 +23,18 @@ jobs:
       - name: Read package metadata
         id: package
         run: |
-          python -m pip install --upgrade "setuptools-scm>=8"
           python - <<'PY' >> "$GITHUB_OUTPUT"
           import tomllib
           from pathlib import Path
-
-          from setuptools_scm import get_version
 
           pyproject = tomllib.loads(Path("pyproject.toml").read_text())
           project = pyproject["project"]
           if project["name"] != "roboplan":
               raise SystemExit(f"Unexpected package name: {project['name']}")
-          if "version" in project:
-              raise SystemExit("pyproject.toml must use git-derived dynamic versioning")
-          if project.get("dynamic") != ["version"]:
-              raise SystemExit("pyproject.toml must declare dynamic = ['version']")
-          print(f"version={get_version(root='.', local_scheme='no-local-version')}")
+          version = project.get("version")
+          if not isinstance(version, str):
+              raise SystemExit("pyproject.toml must declare a static project.version")
+          print(f"version={version}")
           PY
       - name: Check tag matches package version
         if: startsWith(github.ref, 'refs/tags/')
@@ -122,6 +118,7 @@ jobs:
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
           CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_28
           CIBW_ENVIRONMENT: >-
+            CMEEL_JOBS=2
             CMAKE_BUILD_PARALLEL_LEVEL=2
             MAKEFLAGS="-j2"
             NINJAFLAGS="-j2"
