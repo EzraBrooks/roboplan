@@ -25,7 +25,7 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
 ]
 dependencies = [
-    "cmeel-yaml-cpp >=0.8, <0.9",
+    "cmeel-yaml-cpp >=0.8, <0.9; platform_system != 'Windows'",
     "matplotlib",
     "numpy",
     "pin >=4.1.0, <4.2",
