@@ -21,6 +21,7 @@ function(roboplan_get_python_install_dir result)
   elseif(SKBUILD)
     set(${result} "." PARENT_SCOPE)
   else()
+    find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
     # TO_CMAKE_PATH converts Windows backslashes for cmake_install.cmake.
     file(TO_CMAKE_PATH "${Python_SITEARCH}" _python_destination)
     set(${result} "${_python_destination}" PARENT_SCOPE)
