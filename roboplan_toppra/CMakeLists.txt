@@ -35,14 +35,6 @@ if(NOT toppra_FOUND)
   set(PYTHON_BINDINGS
       OFF
       CACHE BOOL "Disable toppra Python bindings" FORCE)
-  # On Windows, build toppra statically: its install rules place the DLL in
-  # lib/, which is not on the loader search path. This can be removed when
-  # https://github.com/hungpham2511/toppra/pull/294 is released.
-  if(WIN32)
-    set(BUILD_SHARED_LIBS
-        OFF
-        CACHE BOOL "" FORCE)
-  endif()
   FetchContent_Declare(
     toppra
     GIT_REPOSITORY https://github.com/hungpham2511/toppra.git
