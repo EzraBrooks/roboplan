@@ -18,11 +18,7 @@ project(roboplan_superbuild)
 get_filename_component(ROBOPLAN_REPOSITORY_ROOT
                        "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
 
-include("${CMAKE_CURRENT_SOURCE_DIR}/RoboplanSuperbuild.cmake")
-
 option(ROBOPLAN_BUILD_EXAMPLES "Build the RoboPlan examples" ON)
-
-roboplan_register_build_tree_packages()
 
 # compile_commands.json export and colored diagnostics live in
 # CMakePresets.json, not here: configure with --preset default (or pixi).
