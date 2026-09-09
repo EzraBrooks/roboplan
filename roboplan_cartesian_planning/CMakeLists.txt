@@ -16,9 +16,15 @@ if(WIN32)
 endif()
 
 # Find dependencies.
-find_package(roboplan REQUIRED)
-find_package(roboplan_oink REQUIRED)
-find_package(roboplan_toppra REQUIRED)
+if(NOT TARGET roboplan::roboplan)
+  find_package(roboplan REQUIRED)
+endif()
+if(NOT TARGET roboplan_oink::roboplan_oink)
+  find_package(roboplan_oink REQUIRED)
+endif()
+if(NOT TARGET roboplan_toppra::roboplan_toppra)
+  find_package(roboplan_toppra REQUIRED)
+endif()
 
 # Ament CMake is not immediately required, but we include it at the top so that
 # if it is found we can use it in build testing before requiring a
