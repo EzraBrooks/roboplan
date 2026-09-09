@@ -49,15 +49,12 @@ target_link_libraries(
 #   layout matches on Windows (Lib/site-packages), falling back to site-packages
 #   on Debian-based ROS, where ament returns lib/python3/dist-packages -- a path
 #   the hook omits.
-# * scikit-build wheel: the wheel root (".").
+# * cmeel: Python_SITELIB if pure Python or just headers, Python_SITEARCH if
+#   package contains arch-specific binaries
 # * plain CMake into a prefix (pixi/conda, the Docker images): the interpreter's
 #   site-packages (absolute), so the package is importable.
 #
-if(COMMAND roboplan_get_python_install_dir)
-  roboplan_get_python_install_dir(PYTHON_DESTINATION)
-elseif(DEFINED ROBOPLAN_PYTHON_INSTALL_DIR)
-  set(PYTHON_DESTINATION "${ROBOPLAN_PYTHON_INSTALL_DIR}")
-elseif(AMENT_BUILD)
+if(AMENT_BUILD)
   ament_get_python_install_dir(_ament_python_dir)
   if(_ament_python_dir MATCHES "dist-packages")
     set(PYTHON_DESTINATION
