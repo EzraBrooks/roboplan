@@ -16,6 +16,25 @@ dependencies = ["roboplan-common ==0.6.1"]
 [project.urls]
 Homepage = "https://github.com/open-planning/roboplan"
 
+[tool.pixi.package]
+publish = true
+
+[tool.pixi.package.build]
+backend = { name = "pixi-build-cmake", version = "*" }
+config = { extra-args = ["-DBUILD_PYTHON_BINDINGS=ON", "-DGENERATE_PYTHON_STUBS=OFF", "-DBUILD_TESTING=OFF"]}
+
+# Conda package "host dependencies"; dependencies required at both build-time and run-time
+[tool.pixi.package.host-dependencies]
+python = { workspace = true }
+nanobind = { workspace = true }
+
+[tool.pixi.package.run-exports.weak]
+roboplan-example-models = { pin-subpackage = true }
+
+[package.run-exports.weak."if(host_platform == 'win-64')"]
+# Needed to lookup example model resources on non-POSIX platforms.
+dlfcn-win32 = ">=1.4.2,<2"
+
 [tool.cmeel]
 run-tests = false
 configure-args = ["-DBUILD_PYTHON_BINDINGS=ON", "-DGENERATE_PYTHON_STUBS=OFF"]

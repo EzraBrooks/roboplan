@@ -29,6 +29,28 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/open-planning/roboplan"
 
+[tool.pixi.package]
+publish = true
+
+[tool.pixi.package.build]
+backend = { name = "pixi-build-cmake", version = "*" }
+config = { extra-args = ["-DBUILD_PYTHON_BINDINGS=ON", "-DGENERATE_PYTHON_STUBS=OFF", "-DBUILD_TESTING=OFF"]}
+
+# Conda package "host dependencies"; libraries required to build the package
+[tool.pixi.package.host-dependencies]
+eigen = ">=3.4"
+pinocchio = ">=4.0.0,<5"
+yaml-cpp = ">=0.8.0,<0.9"
+python = { workspace = true }
+nanobind = { workspace = true }
+gtest = { workspace = true }
+pytest = { workspace = true }
+# TBD: move the benchmarks closer to the code they're benchmarking? make benchmarks their own package?
+pytest-benchmark = { workspace = true }
+
+[tool.pixi.package.run-exports.weak]
+roboplan-core = { pin-subpackage = true }
+
 [tool.cmeel]
 run-tests = false
 configure-args = ["-DBUILD_PYTHON_BINDINGS=ON", "-DGENERATE_PYTHON_STUBS=OFF"]
