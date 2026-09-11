@@ -1,6 +1,8 @@
-[tool.pixi.package]
+[project]
 name = "roboplan-examples"
 version = "0.6.1"
+
+[tool.pixi.package]
 publish = false
 
 [tool.pixi.package.build]
