@@ -12,7 +12,8 @@ ROBOPLAN_LINKER_FLAG = " "
 ROBOPLAN_EXTRA_CMAKE_ARGS = " "
 
 [tool.pixi.target.linux.activation.env]
-ROBOPLAN_LINKER_FLAG = "-fuse-ld=mold"
+# TODO: determine whether we can use `mold` in the conda-forge feedstock. if so, switch the feedstock to clang and use `mold` here. otherwise our GCC version is too old for mold
+# ROBOPLAN_LINKER_FLAG = "-fuse-ld=mold"
 
 [tool.pixi.target.osx-arm64.activation.env]
 # Temporary fix: XCode CLT update shipped with macOS 27 has changed
