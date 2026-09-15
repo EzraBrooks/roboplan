@@ -10,8 +10,12 @@ ASAN_OPTIONS         = "symbolize=1:print_stacktrace=1"
 ASAN_SYMBOLIZER_PATH = "$CONDA_PREFIX/bin/llvm-symbolizer"
 ROBOPLAN_LINKER_FLAG = " "
 ROBOPLAN_EXTRA_CMAKE_ARGS = " "
+ROBOPLAN_CLANG_TIDY_EXTRA_ARGS = " "
 
 [tool.pixi.target.linux.activation.env]
+# Let clang-tidy discover the headers from the GCC toolchain selected by
+# conda-forge's compiler metapackages.
+ROBOPLAN_CLANG_TIDY_EXTRA_ARGS = "-extra-arg-before=--gcc-toolchain=$CONDA_PREFIX"
 # TODO: determine whether we can use `mold` in the conda-forge feedstock. if so, switch the feedstock to clang and use `mold` here. otherwise our GCC version is too old for mold
 # ROBOPLAN_LINKER_FLAG = "-fuse-ld=mold"
 
@@ -117,11 +121,11 @@ test_benchmarks = { cmd = "python -m pytest benchmarks/ --benchmark-json pytest_
 
 # Clang-tidy against the superbuild's single compile_commands.json. Pass a
 # package name to scope to just that package's sources.
-clang-tidy = { cmd = "run-clang-tidy -p build -quiet \"^$PIXI_PROJECT_ROOT/{{ package_name + '/' if package_name }}[^.]\"", args = [
+clang-tidy = { cmd = "run-clang-tidy -p build -quiet $ROBOPLAN_CLANG_TIDY_EXTRA_ARGS \"^$PIXI_PROJECT_ROOT/{{ package_name + '/' if package_name }}[^.]\"", args = [
   { arg = "package_name", default = "" },
 ] }
 
-clang-tidy-fix = { cmd = "run-clang-tidy -p build -fix -quiet \"^$PIXI_PROJECT_ROOT/{{ package_name + '/' if package_name }}[^.]\"", args = [
+clang-tidy-fix = { cmd = "run-clang-tidy -p build -fix -quiet $ROBOPLAN_CLANG_TIDY_EXTRA_ARGS \"^$PIXI_PROJECT_ROOT/{{ package_name + '/' if package_name }}[^.]\"", args = [
   { arg = "package_name", default = "" },
 ] }
 
