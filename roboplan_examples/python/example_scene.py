@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 
 import numpy as np
-
 from common import get_model_data
+
 from roboplan.core import JointConfiguration, Scene
 from roboplan.example_models import get_package_share_dir
-
 
 if __name__ == "__main__":
     jc = JointConfiguration(
@@ -14,7 +13,7 @@ if __name__ == "__main__":
     )
     print(f"Config names: {jc.joint_names}")
     print(f"Config positions: {jc.positions}")
-    print("")
+    print()
 
     model = "ur5"
     model_data = get_model_data()[model]

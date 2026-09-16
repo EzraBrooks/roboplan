@@ -3,17 +3,17 @@
 import sys
 import threading
 import time
-import tyro
-import xacro
 
 import numpy as np
 import pinocchio as pin
+import tyro
+import xacro
+from common import get_model_data
 from pinocchio.visualize import ViserVisualizer
 
-from common import get_model_data
-from roboplan.filters import SE3LowPassFilter
-from roboplan.core import Scene, CartesianConfiguration
+from roboplan.core import CartesianConfiguration, Scene
 from roboplan.example_models import get_package_share_dir
+from roboplan.filters import SE3LowPassFilter
 from roboplan.optimal_ik import (
     AccelerationLimit,
     ConfigurationTask,
@@ -99,7 +99,7 @@ def main(
     print(
         f"Number of joints in group '{model_data.default_joint_group}': {len(joint_names)}"
     )
-    print(f"Joint names:")
+    print("Joint names:")
     for i, name in enumerate(joint_names):
         print(f"  {i}: {name}")
     print()

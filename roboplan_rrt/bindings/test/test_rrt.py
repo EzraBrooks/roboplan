@@ -2,8 +2,6 @@
 Unit tests for RRT planners in RoboPlan.
 """
 
-from pathlib import Path
-
 import numpy as np
 import pinocchio as pin
 import pytest
@@ -11,11 +9,11 @@ import pytest
 from roboplan.core import JointConfiguration, Scene, computePathLength
 from roboplan.example_models import get_package_models_dir, get_package_share_dir
 from roboplan.rrt import (
+    RRT,
     ConstraintProjector,
     ConstraintProjectorOptions,
     PoseConstraint,
     RRTOptions,
-    RRT,
 )
 
 

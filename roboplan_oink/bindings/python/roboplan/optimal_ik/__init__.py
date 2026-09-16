@@ -6,5 +6,5 @@ _dll_directories = add_dll_directories()
 
 import roboplan.core  # noqa: F401
 
-from ._optimal_ik_ext import *  # noqa: E402,F401,F403
-from ._optimal_ik_ext import __version__  # noqa: E402,F401
+from ._optimal_ik_ext import *
+from ._optimal_ik_ext import __version__  # noqa: F401

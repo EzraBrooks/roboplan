@@ -2,17 +2,17 @@
 
 import sys
 import time
-import tyro
-import xacro
 
 import numpy as np
 import pinocchio as pin
+import tyro
+import xacro
+from common import get_model_data
 from pinocchio.visualize import ViserVisualizer
 
-from common import get_model_data
-from roboplan.core import Scene, JointConfiguration, CartesianConfiguration
+from roboplan.core import CartesianConfiguration, JointConfiguration, Scene
 from roboplan.example_models import get_package_share_dir
-from roboplan.simple_ik import SimpleIkOptions, SimpleIk
+from roboplan.simple_ik import SimpleIk, SimpleIkOptions
 
 
 def main(

@@ -4,21 +4,20 @@ Unit tests for scenes in RoboPlan.
 
 from pathlib import Path
 
-import pytest
 import numpy as np
 import pinocchio as pin
+import pytest
 
 from roboplan.core import (
-    hasCollisionsAlongPath,
     Box,
     Cylinder,
     JointType,
     Mesh,
     Scene,
     Sphere,
+    hasCollisionsAlongPath,
 )
 from roboplan.example_models import get_install_prefix
-
 
 URDF = """
 <robot name="robot">

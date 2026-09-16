@@ -1,14 +1,15 @@
-import pytest
 import sys
-import xacro
-
-from roboplan.core import JointConfiguration, Scene
-from roboplan.example_models import get_package_share_dir
-from roboplan.rrt import RRTOptions, RRT
 
 # We don't build the bindings examples, so we just include the relative
 # directory manually.
 from pathlib import Path
+
+import pytest
+import xacro
+
+from roboplan.core import JointConfiguration, Scene
+from roboplan.example_models import get_package_share_dir
+from roboplan.rrt import RRT, RRTOptions
 
 examples_dir = Path(__file__).parent.parent / "roboplan_examples" / "python"
 sys.path.insert(0, str(examples_dir))
