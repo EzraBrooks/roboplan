@@ -298,3 +298,6 @@ ros-humble-ros-core = "*"
 
 [tool.pixi.feature.humble.activation.env]
 ROS_DISTRO = "humble"
+
+[tool.ruff.lint.isort]
+known-first-party = ["roboplan"]
