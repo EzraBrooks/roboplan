@@ -10,8 +10,9 @@
 
 namespace roboplan {
 
-RRT::RRT(const std::shared_ptr<Scene> scene, const RRTOptions& options) : scene_{scene} {
-  setOptions(options);
+RRT::RRT(const std::shared_ptr<Scene> scene, const RRTOptions& options)
+    : scene_{scene}, options_{options} {
+  initializeStateSpace();
 };
 
 void RRT::setOptions(const RRTOptions& options) {
@@ -20,9 +21,12 @@ void RRT::setOptions(const RRTOptions& options) {
   if (group_unchanged) {
     return;  // If the group was unchanged, no need to reinitialize.
   }
+  initializeStateSpace();
+}
 
+void RRT::initializeStateSpace() {
   // Validate the joint group.
-  const auto maybe_joint_group_info = scene_->getJointGroupInfo(options.group_name);
+  const auto maybe_joint_group_info = scene_->getJointGroupInfo(options_.group_name);
   if (!maybe_joint_group_info) {
     throw std::runtime_error("Could not initialize RRT planner: " + maybe_joint_group_info.error());
   }

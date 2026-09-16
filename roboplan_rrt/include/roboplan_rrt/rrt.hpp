@@ -214,6 +214,9 @@ private:
   /// @return The collapsed configuration used for nearest-neighbor lookups.
   Eigen::VectorXd collapse(const Eigen::VectorXd& q_group) const;
 
+  /// @brief Builds the k-d tree state space from `options_.group_name`.
+  void initializeStateSpace();
+
   /// @brief A pointer to the scene.
   std::shared_ptr<Scene> scene_;
 
