@@ -54,6 +54,33 @@ def test_plan(test_scene: Scene) -> None:
     print(path)
 
 
+def test_plan_default_group(test_scene: Scene) -> None:
+    # It should be possible to plan without specifying a group name, if using a model format that doesn't require them
+    test_scene.setRngSeed(286)
+
+    options = RRTOptions()  # group_name defaults to "".
+    options.max_connection_distance = 1.0
+    options.collision_check_step_size = 0.05
+
+    rrt = RRT(test_scene, options)
+    rrt.setRngSeed(1234)
+
+    start = JointConfiguration()
+    start.positions = test_scene.randomCollisionFreePositions()
+    assert start.positions is not None
+
+    goal = JointConfiguration()
+    goal.positions = test_scene.randomCollisionFreePositions()
+    assert goal.positions is not None
+
+    path = rrt.plan(start, goal)
+    assert path is not None
+    # Previously the default group produced empty waypoints and joint names.
+    assert len(path.positions) >= 2
+    assert len(path.joint_names) > 0
+    assert all(len(q) == len(path.joint_names) for q in path.positions)
+
+
 def test_plan_rrt_star(test_scene: Scene) -> None:
     # Plan the same problem with and without RRT*. RRT* keeps rewiring and optimizing,
     # so its path must be equal or shorter than plain RRT.
