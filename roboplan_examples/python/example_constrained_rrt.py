@@ -18,6 +18,8 @@ try:
 except ModuleNotFoundError:
     import hppfcl as coal
 
+import itertools
+
 from roboplan.core import CartesianConfiguration, JointConfiguration, Scene
 from roboplan.example_models import get_package_share_dir
 from roboplan.rrt import (
@@ -130,7 +132,7 @@ def measure_path(scene, path, nominal_z, group_name, ee_name, samples=8):
     # Plot against arc length rather than sample index, so the two paths in a comparison are drawn
     # on the same footing even when one of them has many more waypoints.
     arc = np.cumsum(
-        [0.0] + [scene.configurationDistance(*p) for p in zip(dense, dense[1:])]
+        [0.0] + [scene.configurationDistance(*p) for p in itertools.pairwise(dense)]
     )
 
     # Tilt is the angle between the gripper's approach axis and its nominal direction, which is

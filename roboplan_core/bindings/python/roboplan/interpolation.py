@@ -21,7 +21,7 @@ def computeStepsPerSegment(segment_time: float, control_dt: float) -> int:
     if control_dt <= 0.0:
         raise ValueError("control_dt must be positive.")
 
-    return max(1, int(math.ceil(segment_time / control_dt)))
+    return max(1, math.ceil(segment_time / control_dt))
 
 
 def interpolateConfigurationWaypoints(
