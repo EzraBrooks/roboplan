@@ -32,15 +32,16 @@ namespace coal = hpp::fcl;
 
 namespace roboplan {
 
-/// @brief URDF robot description and SRDF planning configuration documents.
+/// @brief URDF robot description and optional SRDF planning configuration documents.
 struct UrdfSceneDescription {
   std::string urdf_xml;
-  std::string srdf_xml;
+  std::optional<std::string> srdf_xml;
 };
 
-/// @brief Loads a URDF robot description and SRDF planning configuration from disk.
-UrdfSceneDescription loadUrdfSceneDescription(const std::filesystem::path& urdf_path,
-                                              const std::filesystem::path& srdf_path);
+/// @brief Loads a URDF robot description and optional SRDF planning configuration from disk.
+UrdfSceneDescription
+loadUrdfSceneDescription(const std::filesystem::path& urdf_path,
+                         const std::optional<std::filesystem::path>& srdf_path = std::nullopt);
 
 /// @brief Pinocchio model and collision geometry used to construct a Scene.
 struct PinocchioSceneDescription {

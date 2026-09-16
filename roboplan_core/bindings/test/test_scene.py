@@ -364,6 +364,24 @@ def test_mjcf_scene(tmp_path: Path) -> None:
     assert scene.getJointNames() == ["joint1"]
 
 
+def test_scene_without_srdf() -> None:
+    # Omitting the SRDF should still build a scene, keeping every collision pair and exposing
+    # only the default whole-model joint group.
+    scene = Scene("no_srdf_scene", UrdfSceneDescription(URDF))
+    assert scene.getJointNames() == ["continuous_joint", "revolute_joint"]
+
+    default_group = scene.getJointGroupInfo("")
+    assert default_group.joint_names == [
+        "continuous_joint",
+        "revolute_joint",
+        "mimic_joint",
+    ]
+
+    # SRDF-defined groups are unavailable when no SRDF is provided.
+    with pytest.raises(RuntimeError):
+        scene.getJointGroupInfo("arm")
+
+
 def test_mimics() -> None:
     # Native Pinocchio mimics: mimic has no q slot; link3 pose follows revolute via FK.
     test_scene = Scene("test_scene", UrdfSceneDescription(URDF, SRDF))

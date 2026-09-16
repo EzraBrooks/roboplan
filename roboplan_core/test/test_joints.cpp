@@ -126,6 +126,18 @@ TEST_F(RoboPlanJointTest, JointGroupLinksFromChainAndExplicitLinks) {
   EXPECT_THAT(explicit_info.link_names, ::testing::UnorderedElementsAre("base_link", "link2"));
 }
 
+TEST(RoboPlanJointGroupTest, SceneWithoutSrdfExposesOnlyDefaultGroup) {
+  // Omitting the SRDF should still build a scene with the default whole-model joint group, but
+  // without any SRDF-defined groups.
+  Scene scene("no_srdf_scene", UrdfSceneDescription{.urdf_xml = kUrdf});
+
+  const auto default_info = scene.getJointGroupInfo("").value();
+  EXPECT_THAT(default_info.joint_names,
+              ::testing::ElementsAre("continuous_joint", "revolute_joint", "mimic_joint"));
+
+  EXPECT_FALSE(scene.getJointGroupInfo("arm").has_value());
+}
+
 TEST_F(RoboPlanJointTest, CurrentJointPositionsWithMimics) {
   Eigen::VectorXd q(3);
   q << 1.0, 0.0, 0.5;

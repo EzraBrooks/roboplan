@@ -49,9 +49,14 @@ std::string readFile(const std::filesystem::path& path) {
 
 }  // namespace
 
-UrdfSceneDescription loadUrdfSceneDescription(const std::filesystem::path& urdf_path,
-                                              const std::filesystem::path& srdf_path) {
-  return {.urdf_xml = readFile(urdf_path), .srdf_xml = readFile(srdf_path)};
+UrdfSceneDescription
+loadUrdfSceneDescription(const std::filesystem::path& urdf_path,
+                         const std::optional<std::filesystem::path>& srdf_path) {
+  UrdfSceneDescription description{.urdf_xml = readFile(urdf_path)};
+  if (srdf_path.has_value()) {
+    description.srdf_xml = readFile(*srdf_path);
+  }
+  return description;
 }
 
 PinocchioSceneDescription loadMjcfModel(const std::filesystem::path& mjcf_path) {
@@ -78,9 +83,16 @@ Scene::Scene(const std::string& name, const UrdfSceneDescription& description,
   pinocchio::urdf::buildGeom(model_, std::istringstream(description.urdf_xml), pinocchio::COLLISION,
                              collision_model_, package_paths_str);
   collision_model_.addAllCollisionPairs();
-  pinocchio::srdf::removeCollisionPairsFromXML(model_, collision_model_, description.srdf_xml);
+
+  // Without an SRDF, keep all collision pairs and use only the default whole-model joint group.
+  if (description.srdf_xml.has_value()) {
+    pinocchio::srdf::removeCollisionPairsFromXML(model_, collision_model_, *description.srdf_xml);
+  }
+  const auto joint_group_info_map = description.srdf_xml.has_value()
+                                        ? createJointGroupInfo(model_, *description.srdf_xml)
+                                        : createDefaultJointGroupInfo(model_);
   initialize(yaml_config_path, parseUrdfExtendedJointLimits(description.urdf_xml),
-             createJointGroupInfo(model_, description.srdf_xml));
+             joint_group_info_map);
 }
 
 Scene::Scene(const std::string& name, const PinocchioSceneDescription& description,

@@ -184,11 +184,13 @@ void init_core_geometry_wrappers(nanobind::module_& m) {
 void init_core_scene(nanobind::module_& m) {
   nanobind::class_<UrdfSceneDescription>(
       m, "UrdfSceneDescription",
-      "URDF robot description and SRDF planning configuration documents.")
-      .def(nanobind::init<const std::string&, const std::string&>(), "urdf_xml"_a, "srdf_xml"_a)
+      "URDF robot description and optional SRDF planning configuration documents.")
+      .def(nanobind::init<const std::string&, const std::optional<std::string>&>(), "urdf_xml"_a,
+           "srdf_xml"_a = nanobind::none())
       .def_rw("urdf_xml", &UrdfSceneDescription::urdf_xml)
       .def_rw("srdf_xml", &UrdfSceneDescription::srdf_xml);
-  m.def("loadUrdfSceneDescription", &loadUrdfSceneDescription, "urdf_path"_a, "srdf_path"_a);
+  m.def("loadUrdfSceneDescription", &loadUrdfSceneDescription, "urdf_path"_a,
+        "srdf_path"_a = nanobind::none());
 
   nanobind::class_<PinocchioSceneDescription>(m, "PinocchioSceneDescription",
                                               "Prebuilt Pinocchio model and collision geometry.");
