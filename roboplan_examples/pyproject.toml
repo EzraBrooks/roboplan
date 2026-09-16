@@ -19,10 +19,12 @@ roboplan-toppra = { path = "../roboplan_toppra" }
 
 [tool.pixi.package.run-dependencies]
 matplotlib = ">=3.10.5,<4"
+mujoco = ">=3.2,<4"
 numpy = "*"
 plyfile = ">=1.1,<2"
 pycollada = ">=0.9.3,<0.10"
 pynput = ">=1.8.2,<2"
+robot_descriptions = ">=1.12,<2"
 roboplan-cartesian-planning = { path = "../roboplan_cartesian_planning" }
 roboplan-core = { path = "../roboplan" }
 roboplan-example-models = { path = "../roboplan_example_models" }
