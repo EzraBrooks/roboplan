@@ -524,6 +524,13 @@ public:
   tl::expected<void, std::string> setCollisions(const std::string& body1, const std::string& body2,
                                                 const bool enable);
 
+  /// @brief Allows collisions between every parent-child link pair in the kinematic tree.
+  /// @details Almost all robots need this since adjacent link geometries may overlap across joint
+  /// boundaries and cause collision checking to fail on valid configurations. Consider calling this
+  /// if you are not using SRDF to explicitly remove collision pairs.
+  /// @return Void if successful, else a string describing the error.
+  tl::expected<void, std::string> allowAdjacentLinkCollisions();
+
   /// @brief Prints basic information about the scene.
   friend std::ostream& operator<<(std::ostream& os, const Scene& scene);
 

@@ -38,23 +38,6 @@ FLOOR_SIZE = 4.0
 FLOOR_THICKNESS = 0.1
 
 
-def _disable_adjacent_self_collisions(scene: Scene, mj_model: mujoco.MjModel) -> None:
-    """Disables collisions between each body and its parent.
-
-    An MJCF has no SRDF, so :func:`loadMjcfModel` conservatively enables every self-collision pair.
-    Adjacent links in a serial arm always touch, which would leave the robot perpetually in
-    collision. MuJoCo excludes parent-child body collisions by default, so we mirror that here to
-    recover a usable free space for planning.
-    """
-    body_names = [mj_model.body(i).name for i in range(mj_model.nbody)]
-    for i in range(1, mj_model.nbody):
-        child = body_names[i]
-        parent = body_names[int(mj_model.body(i).parentid[0])]
-        # The world body is not part of the robot model, so it has no collision geometry to disable.
-        if parent and parent != "world":
-            scene.setCollisions(child, parent, False)
-
-
 def _add_floor_to_scene(scene: Scene, base_link: str) -> None:
     """Adds a ground plane at z=0 to the planning scene so the robot plans above a floor."""
     tform = np.eye(4)
@@ -183,6 +166,7 @@ def main(
     print(f"Loading MJCF: {mjcf_path}")
 
     scene = Scene(robot, loadMjcfModel(mjcf_path))
+    scene.allowAdjacentLinkCollisions()
     mj_model = _build_mujoco_model(mjcf_path)
     mj_data = mujoco.MjData(mj_model)
 
@@ -192,8 +176,6 @@ def main(
             raise SystemExit(
                 f"This example only supports single-DOF joints, but '{name}' is multi-DOF."
             )
-
-    _disable_adjacent_self_collisions(scene, mj_model)
 
     link_names = scene.getJointGroupInfo("").link_names
     _add_floor_to_scene(scene, link_names[0])

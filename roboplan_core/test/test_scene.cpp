@@ -484,6 +484,39 @@ TEST_F(RoboPlanSceneTest, TestSetCollisions) {
             "'nonexistent_link' not found in frame_map_.");
 }
 
+bool hasCollisionPair(Scene& scene, const std::string& body1, const std::string& body2) {
+  const auto ids1 = scene.getCollisionGeometryIds(body1).value();
+  const auto ids2 = scene.getCollisionGeometryIds(body2).value();
+  const auto& collision_model = scene.getCollisionModel();
+  for (const auto& pair : collision_model.collisionPairs) {
+    for (const auto id1 : ids1) {
+      for (const auto id2 : ids2) {
+        if ((pair.first == id1 && pair.second == id2) ||
+            (pair.first == id2 && pair.second == id1)) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+TEST_F(RoboPlanSceneTest, TestAllowAdjacentLinkCollisions) {
+  Scene scene_no_srdf("test_scene", loadUrdfSceneDescription(urdf_path), package_paths,
+                      yaml_config_path);
+
+  ASSERT_TRUE(hasCollisionPair(scene_no_srdf, "base_link", "shoulder_link"));
+  ASSERT_TRUE(hasCollisionPair(scene_no_srdf, "shoulder_link", "upper_arm_link"));
+
+  const auto result = scene_no_srdf.allowAdjacentLinkCollisions();
+  ASSERT_TRUE(result.has_value()) << result.error();
+
+  EXPECT_FALSE(hasCollisionPair(scene_no_srdf, "base_link", "shoulder_link"));
+  EXPECT_FALSE(hasCollisionPair(scene_no_srdf, "shoulder_link", "upper_arm_link"));
+  // Non-adjacent links should still be checked.
+  EXPECT_TRUE(hasCollisionPair(scene_no_srdf, "base_link", "forearm_link"));
+}
+
 TEST_F(RoboPlanSceneTest, TestPositionLimitsVector) {
   Eigen::VectorXd expected_lower_limits(6);
   expected_lower_limits << -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159;
