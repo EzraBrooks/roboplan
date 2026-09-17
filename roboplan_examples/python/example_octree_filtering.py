@@ -27,8 +27,6 @@ except ModuleNotFoundError:
     import hppfcl as coal
 
 import pinocchio as pin
-from pinocchio.visualize import ViserVisualizer
-
 from common import (
     ROBOPLAN_MODELS_DIR,
     get_home_configuration,
@@ -36,6 +34,8 @@ from common import (
     load_point_cloud,
     sample_points_on_robot,
 )
+from pinocchio.visualize import ViserVisualizer
+
 from roboplan.core import (
     JointConfiguration,
     OcTree,
@@ -45,7 +45,7 @@ from roboplan.core import (
     Scene,
 )
 from roboplan.example_models import get_package_share_dir
-from roboplan.rrt import RRTOptions, RRT
+from roboplan.rrt import RRT, RRTOptions
 from roboplan.toppra import PathParameterizerTOPPRA, SplineFittingMode, TOPPRAOptions
 from roboplan.visualization import visualizeJointTrajectory
 

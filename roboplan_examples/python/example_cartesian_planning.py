@@ -2,22 +2,22 @@
 
 import sys
 import time
-import tyro
-import xacro
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pinocchio as pin
+import tyro
+import xacro
+from common import get_home_configuration, get_model_data
 from pinocchio.visualize import ViserVisualizer
 
-from common import get_home_configuration, get_model_data
-from roboplan.core import Scene, JointConfiguration, CartesianPath
-from roboplan.example_models import get_package_share_dir
 from roboplan.cartesian_planning import (
     CartesianPathPlanner,
     CartesianPlannerOptions,
     CartesianSpeedMode,
 )
+from roboplan.core import CartesianPath, JointConfiguration, Scene
+from roboplan.example_models import get_package_share_dir
 from roboplan.visualization import (
     plotJointTrajectory,
     visualizeJointTrajectory,

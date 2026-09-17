@@ -7,10 +7,10 @@ except ModuleNotFoundError:
     import hppfcl as coal
 
 import numpy as np
-from numpy.typing import NDArray
 import pinocchio as pin
+from numpy.typing import NDArray
 
-from roboplan.core import Box, Cylinder, Mesh, Scene, Sphere, OcTree
+from roboplan.core import Box, Cylinder, Mesh, OcTree, Scene, Sphere
 from roboplan.example_models import get_package_models_dir
 
 

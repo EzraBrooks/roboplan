@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 import numpy as np
 import pinocchio as pin
+from matplotlib.figure import Figure
 from pinocchio.visualize import ViserVisualizer
 
 from roboplan.core import (
-    Scene,
-    computeFramePath,
-    collapseContinuousJointPositions,
     JointPath,
     JointTrajectory,
+    Scene,
+    collapseContinuousJointPositions,
+    computeFramePath,
 )
 
 

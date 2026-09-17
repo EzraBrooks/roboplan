@@ -7,7 +7,7 @@ import pytest
 
 from roboplan.core import Box, CartesianConfiguration, JointConfiguration, Scene
 from roboplan.example_models import get_package_models_dir, get_package_share_dir
-from roboplan.simple_ik import SimpleIkOptions, SimpleIk
+from roboplan.simple_ik import SimpleIk, SimpleIkOptions
 
 GROUP_NAME = "arm"
 BASE_FRAME = "base"

@@ -12,7 +12,6 @@ from roboplan.core import (
     Scene,
 )
 
-
 # A robot made of a single sphere of radius 0.1 fixed at the origin, so the filter's
 # classification can be checked against closed-form distances.
 URDF = """

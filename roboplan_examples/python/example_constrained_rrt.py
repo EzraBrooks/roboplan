@@ -3,36 +3,35 @@
 import queue
 import sys
 import time
-import tyro
-import xacro
-
 from dataclasses import replace
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pinocchio as pin
-from pinocchio.visualize import ViserVisualizer
-
+import tyro
+import xacro
 from common import ObstacleConfig, get_model_data
+from pinocchio.visualize import ViserVisualizer
 
 try:
     import coal
 except ModuleNotFoundError:
     import hppfcl as coal
 
+import itertools
+
 from roboplan.core import CartesianConfiguration, JointConfiguration, Scene
 from roboplan.example_models import get_package_share_dir
 from roboplan.rrt import (
+    RRT,
     ConstraintProjector,
     ConstraintProjectorOptions,
     PoseConstraint,
-    RRT,
     RRTOptions,
 )
 from roboplan.simple_ik import SimpleIk, SimpleIkOptions
 from roboplan.toppra import PathParameterizerTOPPRA, SplineFittingMode, TOPPRAOptions
 from roboplan.visualization import addPositionPolyline, visualizeJointTrajectory
-
 
 # The safe zone the gripper must stay inside, as (min, max) world coordinates in meters.
 ZONE_MIN = np.array([0.30, -0.45, 0.25])
@@ -133,7 +132,7 @@ def measure_path(scene, path, nominal_z, group_name, ee_name, samples=8):
     # Plot against arc length rather than sample index, so the two paths in a comparison are drawn
     # on the same footing even when one of them has many more waypoints.
     arc = np.cumsum(
-        [0.0] + [scene.configurationDistance(*p) for p in zip(dense, dense[1:])]
+        [0.0] + [scene.configurationDistance(*p) for p in itertools.pairwise(dense)]
     )
 
     # Tilt is the angle between the gripper's approach axis and its nominal direction, which is

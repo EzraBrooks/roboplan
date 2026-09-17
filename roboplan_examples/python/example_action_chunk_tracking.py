@@ -32,9 +32,9 @@ import numpy as np
 import pinocchio as pin
 import tyro
 import xacro
+from common import get_home_configuration, get_model_data
 from pinocchio.visualize import ViserVisualizer
 
-from common import get_home_configuration, get_model_data
 from roboplan.core import (
     CartesianConfiguration,
     CartesianTrajectory,

@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 
-import sys
 import queue
+import sys
 import time
-import tyro
-import xacro
 
 import matplotlib.pyplot as plt
 import pinocchio as pin
+import tyro
+import xacro
+from common import get_model_data, get_octree
 from pinocchio.visualize import ViserVisualizer
 
-from common import get_model_data, get_octree
 from roboplan.core import (
     JointConfiguration,
     PathShortcutter,
@@ -18,13 +18,13 @@ from roboplan.core import (
     Scene,
 )
 from roboplan.example_models import get_package_share_dir
-from roboplan.rrt import RRTOptions, RRT, visualizeTree
+from roboplan.rrt import RRT, RRTOptions, visualizeTree
 from roboplan.toppra import PathParameterizerTOPPRA, SplineFittingMode, TOPPRAOptions
 from roboplan.visualization import (
-    visualizeJointTrajectory,
-    visualizePath,
     plotJointTrajectory,
+    visualizeJointTrajectory,
     visualizeOcTree,
+    visualizePath,
 )
 
 
