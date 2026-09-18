@@ -335,6 +335,8 @@ void init_core_scene(nanobind::module_& m) {
       .def("setCollisions", unwrap_expected(&Scene::setCollisions),
            "Sets the allowable collisions for a pair of bodies in the model.", "body1"_a, "body2"_a,
            "enable"_a)
+      .def("allowAdjacentLinkCollisions", unwrap_expected(&Scene::allowAdjacentLinkCollisions),
+           "Allows collisions between every parent-child link pair in the kinematic tree.")
       .def("__repr__", [](const Scene& scene) {
         std::stringstream ss;
         ss << scene;

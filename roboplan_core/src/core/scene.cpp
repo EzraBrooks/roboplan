@@ -1086,6 +1086,28 @@ tl::expected<void, std::string> Scene::setCollisions(const std::string& body1,
   return {};
 }
 
+tl::expected<void, std::string> Scene::allowAdjacentLinkCollisions() {
+  std::vector<std::vector<std::string>> links_by_joint(static_cast<size_t>(model_.njoints));
+  for (const auto& frame : model_.frames) {
+    if (frame.type == pinocchio::BODY) {
+      links_by_joint.at(frame.parentJoint).push_back(frame.name);
+    }
+  }
+
+  for (int jid = 1; jid < model_.njoints; ++jid) {
+    const auto parent_jid = model_.parents.at(jid);
+    for (const auto& child_link : links_by_joint.at(jid)) {
+      for (const auto& parent_link : links_by_joint.at(parent_jid)) {
+        const auto result = setCollisions(child_link, parent_link, false);
+        if (!result) {
+          return result;
+        }
+      }
+    }
+  }
+  return {};
+}
+
 std::ostream& operator<<(std::ostream& os, const Scene& scene) {
   os << "Scene: " << scene.name_ << "\n";
   os << "Joint names: ";

@@ -561,6 +561,11 @@ class Scene:
     def setCollisions(self, body1: str, body2: str, enable: bool) -> None:
         """Sets the allowable collisions for a pair of bodies in the model."""
 
+    def allowAdjacentLinkCollisions(self) -> None:
+        """
+        Allows collisions between every parent-child link pair in the kinematic tree.
+        """
+
     def __repr__(self) -> str: ...
 
 class SceneContext:

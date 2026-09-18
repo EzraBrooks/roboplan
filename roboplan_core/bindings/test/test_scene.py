@@ -282,6 +282,33 @@ def test_set_collisions(test_scene: Scene) -> None:
     assert str(exc_info.value) == expected_error
 
 
+def test_allow_adjacent_link_collisions() -> None:
+    roboplan_examples_dir = Path(get_install_prefix()) / "share"
+    roboplan_models_dir = roboplan_examples_dir / "roboplan_example_models" / "models"
+    urdf_path = roboplan_models_dir / "ur_robot_model" / "ur5_gripper.urdf"
+    package_paths = [roboplan_examples_dir]
+    yaml_config_path = roboplan_models_dir / "ur_robot_model" / "ur5_config.yaml"
+
+    scene = Scene(
+        "test_scene",
+        loadUrdfSceneDescription(urdf_path),
+        package_paths,
+        yaml_config_path,
+    )
+
+    # Without an SRDF every self-collision pair is active, so even the neutral configuration
+    # reports the adjacent links as colliding.
+    q_free = np.array([0.0, -1.57, 0.0, 0.0, 0.0, 0.0])
+    assert scene.hasCollisions(q_free)
+
+    scene.allowAdjacentLinkCollisions()
+    assert not scene.hasCollisions(q_free)
+
+    # Non-adjacent links must still be checked.
+    q_coll = np.array([0.0, -1.57, 3.0, 0.0, 0.0, 0.0])
+    assert scene.hasCollisions(q_coll)
+
+
 def test_position_limits_vector(test_scene: Scene) -> None:
     expected_lower_limits = np.array(
         [-3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159]
