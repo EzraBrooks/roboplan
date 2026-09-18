@@ -75,11 +75,18 @@ Usage Example
 .. code-block:: python
 
    import numpy as np
-   from roboplan.core import Scene, JointConfiguration, CartesianConfiguration
+   from pathlib import Path
+   from roboplan.core import (
+       Scene,
+       JointConfiguration,
+       CartesianConfiguration,
+       loadUrdfSceneDescription,
+   )
    from roboplan.simple_ik import SimpleIkOptions, SimpleIk
 
    # Setup
-   scene = Scene("robot", urdf_path, srdf_path, package_paths)
+   scene = Scene("robot", loadUrdfSceneDescription(urdf_path, package_paths))
+   scene.importSrdf(Path(srdf_path).read_text())
 
    options = SimpleIkOptions(
        group_name="arm",
@@ -565,7 +572,7 @@ Usage Example
 .. code-block:: python
 
    import numpy as np
-   from roboplan.core import Scene, CartesianConfiguration
+   from roboplan.core import Scene, CartesianConfiguration, loadUrdfSceneDescriptionFromXml
    from roboplan.optimal_ik import (
        AccelerationLimit,
        ConfigurationTask, ConfigurationTaskOptions,
@@ -575,7 +582,8 @@ Usage Example
    )
 
    # Scene + solver. urdf/srdf are XML strings (e.g. from xacro.process_file(...).toxml()).
-   scene = Scene("robot", urdf=urdf_xml, srdf=srdf_xml, package_paths=package_paths)
+   scene = Scene("robot", loadUrdfSceneDescriptionFromXml(urdf_xml, package_paths))
+   scene.importSrdf(srdf_xml)
    oink = Oink(scene, group_name="arm")
    nv = len(oink.v_indices)                  # joint-group velocity dimension
    dt = 0.01
