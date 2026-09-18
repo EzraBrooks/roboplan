@@ -17,7 +17,7 @@ endif()
 
 # Find dependencies.
 find_package(Eigen3 REQUIRED)
-find_package(pinocchio REQUIRED)
+find_package(pinocchio 4.1.0 REQUIRED)
 find_package(console_bridge REQUIRED)
 find_package(yaml-cpp REQUIRED)
 

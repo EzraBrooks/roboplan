@@ -52,14 +52,6 @@ struct PinocchioSceneDescription {
 /// @brief Loads an MJCF model and its collision geometry from disk.
 PinocchioSceneDescription loadMjcfModel(const std::filesystem::path& mjcf_path);
 
-/// @brief Holds extended joint limits (acceleration, jerk) parsed from a URDF <limit> tag.
-/// @details This is a temporary holdover until Pinocchio properly supports URDF 1.2 extended
-/// limits in its own parsers. See https://github.com/stack-of-tasks/pinocchio/issues/2893
-struct UrdfExtendedJointLimits {
-  std::optional<double> acceleration;
-  std::optional<double> jerk;
-};
-
 /// @brief Primary scene representation for planning and control.
 ///
 /// @par Thread safety
@@ -535,10 +527,8 @@ public:
   friend std::ostream& operator<<(std::ostream& os, const Scene& scene);
 
 private:
-  void
-  initialize(const std::filesystem::path& yaml_config_path,
-             const std::unordered_map<std::string, UrdfExtendedJointLimits>& urdf_extended_limits,
-             const std::unordered_map<std::string, JointGroupInfo>& joint_group_info_map);
+  void initialize(const std::filesystem::path& yaml_config_path,
+                  const std::unordered_map<std::string, JointGroupInfo>& joint_group_info_map);
 
   /// @brief The name of the scene.
   std::string name_;

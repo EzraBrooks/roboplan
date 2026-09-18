@@ -194,7 +194,6 @@ rolling = { features = ["ros", "toolchain", "rolling"]}
 lyrical = { features = ["ros", "toolchain", "lyrical"]}
 kilted = { features = ["ros", "toolchain", "kilted"]}
 jazzy = { features = ["ros", "toolchain", "jazzy"]}
-humble = { features = ["ros", "toolchain", "humble"]}
 
 [tool.pixi.feature.ros.dependencies]
 colcon-common-extensions = ">=0.3.0,<0.4"
@@ -286,18 +285,6 @@ ros-jazzy-ros-core = "*"
 
 [tool.pixi.feature.jazzy.activation.env]
 ROS_DISTRO = "jazzy"
-
-##################
-## ROS 2 Humble ##
-##################
-[tool.pixi.feature.humble]
-channels = ["https://prefix.dev/robostack-humble"]
-
-[tool.pixi.feature.humble.dependencies]
-ros-humble-ros-core = "*"
-
-[tool.pixi.feature.humble.activation.env]
-ROS_DISTRO = "humble"
 
 [tool.ruff.lint.isort]
 known-first-party = ["roboplan"]

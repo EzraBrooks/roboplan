@@ -51,7 +51,7 @@ endif()
 # That includes its IMPORTED targets: pinocchio's interface references
 # coal::coal via $<TARGET_PROPERTY:...>, which CMake resolves in the consuming
 # target's directory, so coal::coal must be visible to every sibling package.
-find_package(pinocchio REQUIRED)
+find_package(pinocchio 4.1.0 REQUIRED)
 
 add_subdirectory("${ROBOPLAN_REPOSITORY_ROOT}/roboplan_common"
                  "roboplan_common")

@@ -31,12 +31,12 @@ bool isFreeRotatingDof(roboplan::JointType type, int dof) {
   }
 }
 
-/// @brief Maps an infinite position limit to the finite sentinel used to denote "unbounded".
-/// @details JointInfo represents an unbounded position limit as
+/// @brief Maps an infinite limit to the finite sentinel used to denote "unbounded".
+/// @details JointInfo represents an unbounded limit as
 /// std::numeric_limits<double>::lowest() / max() (see the JointInfo constructor), not as
 /// +/-infinity. A user-supplied '.inf' / '-.inf' is normalized to these sentinels so that an
 /// overridden unbounded limit is represented identically to the default unbounded limit.
-double sanitizePositionLimit(double value) {
+double sanitizeLimit(double value) {
   if (std::isinf(value)) {
     return value > 0.0 ? std::numeric_limits<double>::max() : std::numeric_limits<double>::lowest();
   }
@@ -448,49 +448,8 @@ Eigen::VectorXd jointPositionsWithMimicsFromPinocchio(const Scene& scene,
   return positions;
 }
 
-std::unordered_map<std::string, UrdfExtendedJointLimits>
-parseUrdfExtendedJointLimits(const std::string& urdf) {
-  std::unordered_map<std::string, UrdfExtendedJointLimits> result;
-
-  tinyxml2::XMLDocument doc;
-  if (doc.Parse(urdf.c_str()) != tinyxml2::XML_SUCCESS) {
-    return result;
-  }
-
-  const tinyxml2::XMLElement* robot = doc.FirstChildElement("robot");
-  if (!robot) {
-    return result;
-  }
-
-  for (const tinyxml2::XMLElement* joint = robot->FirstChildElement("joint"); joint;
-       joint = joint->NextSiblingElement("joint")) {
-    const char* name = joint->Attribute("name");
-    if (!name) {
-      continue;
-    }
-    const tinyxml2::XMLElement* limit = joint->FirstChildElement("limit");
-    if (!limit) {
-      continue;
-    }
-
-    UrdfExtendedJointLimits limits;
-    double val = 0.0;
-    if (limit->QueryDoubleAttribute("acceleration", &val) == tinyxml2::XML_SUCCESS) {
-      limits.acceleration = val;
-    }
-    if (limit->QueryDoubleAttribute("jerk", &val) == tinyxml2::XML_SUCCESS) {
-      limits.jerk = val;
-    }
-    result.emplace(name, limits);
-  }
-
-  return result;
-}
-
-void overrideJointLimitsFromYaml(
-    const pinocchio::Model& model, const YAML::Node& yaml_config,
-    const std::unordered_map<std::string, UrdfExtendedJointLimits>& urdf_extended_limits,
-    const std::string& joint_name, JointInfo& info) {
+void overrideJointLimitsFromYaml(const pinocchio::Model& model, const YAML::Node& yaml_config,
+                                 const std::string& joint_name, JointInfo& info) {
   const int nv = static_cast<int>(info.num_velocity_dofs);
   // Starting index of this joint's DOFs in the model's velocity vector.
   const auto v_start = model.idx_vs[model.getJointId(joint_name)];
@@ -544,7 +503,6 @@ void overrideJointLimitsFromYaml(
       }
     }
   }
-  const auto urdf_extended_it = urdf_extended_limits.find(joint_name);
   for (int idx = 0; idx < nv; ++idx) {
     // Position limits are overridden per velocity-space DOF. For free-rotating DOFs (continuous
     // joints and the orientation DOFs of planar/floating joints) a position limit is meaningless,
@@ -557,7 +515,7 @@ void overrideJointLimitsFromYaml(
       if (is_free_dof) {
         discarded_pos_limit |= std::isfinite(val);
       } else {
-        info.limits.min_position[idx] = sanitizePositionLimit(val);
+        info.limits.min_position[idx] = sanitizeLimit(val);
       }
     }
     if (maybe_max_pos_limits) {
@@ -565,7 +523,7 @@ void overrideJointLimitsFromYaml(
       if (is_free_dof) {
         discarded_pos_limit |= std::isfinite(val);
       } else {
-        info.limits.max_position[idx] = sanitizePositionLimit(val);
+        info.limits.max_position[idx] = sanitizeLimit(val);
       }
     }
     if (discarded_pos_limit) {
@@ -581,16 +539,15 @@ void overrideJointLimitsFromYaml(
       info.limits.max_velocity[idx] = model.velocityLimit(v_start + idx);
     }
     if (maybe_acc_limits) {
-      info.limits.max_acceleration[idx] = maybe_acc_limits.value()[idx].as<double>();
-    } else if (urdf_extended_it != urdf_extended_limits.end() &&
-               urdf_extended_it->second.acceleration.has_value()) {
-      info.limits.max_acceleration[idx] = urdf_extended_it->second.acceleration.value();
+      info.limits.max_acceleration[idx] = sanitizeLimit(maybe_acc_limits.value()[idx].as<double>());
+    } else {
+      info.limits.max_acceleration[idx] =
+          sanitizeLimit(model.upperAccelerationLimit(v_start + idx));
     }
     if (maybe_jerk_limits) {
-      info.limits.max_jerk[idx] = maybe_jerk_limits.value()[idx].as<double>();
-    } else if (urdf_extended_it != urdf_extended_limits.end() &&
-               urdf_extended_it->second.jerk.has_value()) {
-      info.limits.max_jerk[idx] = urdf_extended_it->second.jerk.value();
+      info.limits.max_jerk[idx] = sanitizeLimit(maybe_jerk_limits.value()[idx].as<double>());
+    } else {
+      info.limits.max_jerk[idx] = sanitizeLimit(model.upperJerkLimit(v_start + idx));
     }
   }
 }

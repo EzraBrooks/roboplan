@@ -1,7 +1,6 @@
 #pragma once
 
 #include <map>
-#include <optional>
 #include <string>
 #include <unordered_map>
 
@@ -90,31 +89,18 @@ bool computeCollisionsVerbose(const pinocchio::Model& model, pinocchio::Data& da
                               const pinocchio::GeometryModel& collision_model,
                               pinocchio::GeometryData& geom_data, const Eigen::VectorXd& q);
 
-/// @brief Parses extended joint limits (acceleration, jerk) from URDF <limit> tags.
-/// @details Reads acceleration and jerk attributes if present, regardless of URDF version.
-/// Returns an empty map only if parsing fails.
-/// This is a temporary holdover until Pinocchio properly supports URDF 1.2 extended limits.
-/// See https://github.com/stack-of-tasks/pinocchio/issues/2893
-/// @param urdf The URDF XML string.
-/// @return A map from joint name to its extended limits.
-std::unordered_map<std::string, UrdfExtendedJointLimits>
-parseUrdfExtendedJointLimits(const std::string& urdf);
-
 /// @brief Overrides a joint's limits in-place from a YAML configuration.
 /// @details Position, velocity, acceleration, and jerk limits may each be overridden via a
 /// `joint_limits/<joint_name>` entry, where every limit is a sequence sized to the joint's number
-/// of velocity DOFs. When no override is present, velocity limits fall back to the URDF values from
-/// the model and acceleration/jerk limits fall back to the extended URDF limits. Position limits
-/// for free-rotating DOFs (continuous joints and the orientation DOFs of planar/floating joints)
-/// are meaningless and are discarded with a warning unless given as '.inf' / '-.inf'.
-/// @param model The Pinocchio model, used for URDF-derived velocity limits.
+/// of velocity DOFs. When no override is present, limits fall back to the Pinocchio model (URDF
+/// 1.2 acceleration/jerk included). Position limits for free-rotating DOFs (continuous joints and
+/// the orientation DOFs of planar/floating joints) are meaningless and are discarded with a
+/// warning unless given as '.inf' / '-.inf'.
+/// @param model The Pinocchio model, used for URDF-derived limit fallbacks.
 /// @param yaml_config The parsed YAML configuration node (may be empty/null).
-/// @param urdf_extended_limits Extended (acceleration, jerk) limits parsed from the URDF.
 /// @param joint_name The name of the joint to override.
 /// @param info The joint info to modify in-place.
-void overrideJointLimitsFromYaml(
-    const pinocchio::Model& model, const YAML::Node& yaml_config,
-    const std::unordered_map<std::string, UrdfExtendedJointLimits>& urdf_extended_limits,
-    const std::string& joint_name, JointInfo& info);
+void overrideJointLimitsFromYaml(const pinocchio::Model& model, const YAML::Node& yaml_config,
+                                 const std::string& joint_name, JointInfo& info);
 
 }  // namespace roboplan
