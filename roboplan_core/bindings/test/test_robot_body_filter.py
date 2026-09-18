@@ -10,7 +10,7 @@ from roboplan.core import (
     RobotBodyFilterMethod,
     RobotBodyFilterOptions,
     Scene,
-    UrdfSceneDescription,
+    loadUrdfSceneDescriptionFromXml,
 )
 
 # A robot made of a single sphere of radius 0.1 fixed at the origin, so the filter's
@@ -40,7 +40,9 @@ SRDF = """<robot name="ball_bot"/>"""
 
 @pytest.fixture
 def ball_scene():
-    return Scene("ball_scene", UrdfSceneDescription(URDF, SRDF))
+    scene = Scene("ball_scene", loadUrdfSceneDescriptionFromXml(URDF))
+    scene.importSrdf(SRDF)
+    return scene
 
 
 # The padded body is the ball of radius 0.1 + 0.05 = 0.15 around the origin; the padded

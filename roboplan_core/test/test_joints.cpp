@@ -56,8 +56,9 @@ namespace roboplan {
 class RoboPlanJointTest : public ::testing::Test {
 protected:
   void SetUp() override {
-    scene = std::make_unique<Scene>("test_scene",
-                                    UrdfSceneDescription{.urdf_xml = kUrdf, .srdf_xml = kSrdf});
+    scene = std::make_unique<Scene>("test_scene", loadUrdfSceneDescriptionFromXml(kUrdf));
+    const auto imported = scene->importSrdf(kSrdf);
+    ASSERT_TRUE(imported.has_value()) << imported.error();
   }
 
 public:
@@ -113,9 +114,14 @@ TEST_F(RoboPlanJointTest, JointGroupLinksFromChainAndExplicitLinks) {
     <joint name="revolute_joint"/>
     <link name="base_link"/>
   </group>
+  <group name="nested">
+    <group name="chain_group"/>
+  </group>
 </robot>
 )";
-  Scene scene("chain_scene", UrdfSceneDescription{.urdf_xml = kUrdf, .srdf_xml = srdf});
+  Scene scene("chain_scene", loadUrdfSceneDescriptionFromXml(kUrdf));
+  const auto imported = scene.importSrdf(srdf);
+  ASSERT_TRUE(imported.has_value()) << imported.error();
 
   // The chain from base_link to link3 covers link1, link2, and link3 (base_link is excluded).
   const auto chain_info = scene.getJointGroupInfo("chain_group").value();
@@ -124,18 +130,49 @@ TEST_F(RoboPlanJointTest, JointGroupLinksFromChainAndExplicitLinks) {
   // The explicit group derives link2 from revolute_joint and additionally includes base_link.
   const auto explicit_info = scene.getJointGroupInfo("explicit_group").value();
   EXPECT_THAT(explicit_info.link_names, ::testing::UnorderedElementsAre("base_link", "link2"));
+
+  const auto nested_info = scene.getJointGroupInfo("nested").value();
+  EXPECT_THAT(nested_info.joint_names, ::testing::ElementsAreArray(chain_info.joint_names));
 }
 
 TEST(RoboPlanJointGroupTest, SceneWithoutSrdfExposesOnlyDefaultGroup) {
   // Omitting the SRDF should still build a scene with the default whole-model joint group, but
   // without any SRDF-defined groups.
-  Scene scene("no_srdf_scene", UrdfSceneDescription{.urdf_xml = kUrdf});
+  Scene scene("no_srdf_scene", loadUrdfSceneDescriptionFromXml(kUrdf));
 
   const auto default_info = scene.getJointGroupInfo("").value();
   EXPECT_THAT(default_info.joint_names,
               ::testing::ElementsAre("continuous_joint", "revolute_joint", "mimic_joint"));
 
   EXPECT_FALSE(scene.getJointGroupInfo("arm").has_value());
+}
+
+TEST(RoboPlanJointGroupTest, AddGroupFromJointsChainAndGroups) {
+  Scene scene("groups_scene", loadUrdfSceneDescriptionFromXml(kUrdf));
+
+  const auto arm = scene.addGroup("arm", {"revolute_joint", "mimic_joint"});
+  ASSERT_TRUE(arm.has_value()) << arm.error();
+  const auto arm_info = scene.getJointGroupInfo("arm").value();
+  EXPECT_THAT(arm_info.joint_names, ::testing::ElementsAre("revolute_joint", "mimic_joint"));
+  EXPECT_THAT(arm_info.link_names, ::testing::UnorderedElementsAre("link2", "link3"));
+
+  const auto chain = scene.addGroupFromChain("chain_group", "base_link", "link3");
+  ASSERT_TRUE(chain.has_value()) << chain.error();
+  const auto chain_info = scene.getJointGroupInfo("chain_group").value();
+  EXPECT_THAT(chain_info.joint_names,
+              ::testing::ElementsAre("continuous_joint", "revolute_joint", "mimic_joint"));
+  EXPECT_THAT(chain_info.link_names, ::testing::UnorderedElementsAre("link1", "link2", "link3"));
+
+  const auto combined = scene.addGroupFromGroups("arm_and_base", {"", "arm"});
+  ASSERT_TRUE(combined.has_value()) << combined.error();
+  const auto combined_info = scene.getJointGroupInfo("arm_and_base").value();
+  EXPECT_THAT(combined_info.joint_names,
+              ::testing::ElementsAre("continuous_joint", "revolute_joint", "mimic_joint",
+                                     "revolute_joint", "mimic_joint"));
+
+  EXPECT_FALSE(scene.addGroup("", {"revolute_joint"}).has_value());
+  EXPECT_FALSE(scene.addGroup("bad", {"missing_joint"}).has_value());
+  EXPECT_FALSE(scene.addGroupFromGroups("bad", {"missing_group"}).has_value());
 }
 
 TEST_F(RoboPlanJointTest, CurrentJointPositionsWithMimics) {

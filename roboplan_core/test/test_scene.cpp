@@ -5,6 +5,7 @@
 #include <limits>
 #include <memory>
 #include <numbers>
+#include <stdexcept>
 #include <vector>
 
 #include <roboplan/core/path_utils.hpp>
@@ -45,8 +46,11 @@ protected:
     srdf_path = model_prefix / "ur_robot_model" / "ur5_gripper.srdf";
     package_paths = {example_models::get_package_share_dir()};
     yaml_config_path = model_prefix / "ur_robot_model" / "ur5_config.yaml";
-    scene = std::make_unique<Scene>("test_scene", loadUrdfSceneDescription(urdf_path, srdf_path),
-                                    package_paths, yaml_config_path);
+    const auto description = loadUrdfSceneDescription(urdf_path, package_paths);
+    scene = std::make_unique<Scene>("test_scene", description, yaml_config_path);
+    if (const auto imported = scene->importSrdf(loadTextFile(srdf_path)); !imported) {
+      throw std::runtime_error(imported.error());
+    }
   }
 
 public:
@@ -502,7 +506,7 @@ bool hasCollisionPair(Scene& scene, const std::string& body1, const std::string&
 }
 
 TEST_F(RoboPlanSceneTest, TestAllowAdjacentLinkCollisions) {
-  Scene scene_no_srdf("test_scene", loadUrdfSceneDescription(urdf_path), package_paths,
+  Scene scene_no_srdf("test_scene", loadUrdfSceneDescription(urdf_path, package_paths),
                       yaml_config_path);
 
   ASSERT_TRUE(hasCollisionPair(scene_no_srdf, "base_link", "shoulder_link"));
@@ -612,8 +616,11 @@ TEST_F(RoboPlanSceneTest, TestPositionLimitsOverrideFromYaml) {
            "    max_position: [1.0]\n";
   }
 
-  Scene scene("override_scene", loadUrdfSceneDescription(urdf_path, srdf_path), package_paths,
-              tmp_config);
+  const auto description = loadUrdfSceneDescription(urdf_path, package_paths);
+  Scene scene("override_scene", description, tmp_config);
+  if (const auto imported = scene.importSrdf(loadTextFile(srdf_path)); !imported) {
+    FAIL() << imported.error();
+  }
 
   const auto maybe_joint_info = scene.getJointInfo("shoulder_pan_joint");
   ASSERT_TRUE(maybe_joint_info.has_value()) << maybe_joint_info.error();
@@ -645,8 +652,11 @@ TEST_F(RoboPlanSceneTest, TestPositionLimitsOverrideInfinityFromYaml) {
            "    max_position: [.inf]\n";
   }
 
-  Scene scene("inf_scene", loadUrdfSceneDescription(urdf_path, srdf_path), package_paths,
-              tmp_config);
+  const auto description = loadUrdfSceneDescription(urdf_path, package_paths);
+  Scene scene("inf_scene", description, tmp_config);
+  if (const auto imported = scene.importSrdf(loadTextFile(srdf_path)); !imported) {
+    FAIL() << imported.error();
+  }
 
   const auto maybe_joint_info = scene.getJointInfo("shoulder_pan_joint");
   ASSERT_TRUE(maybe_joint_info.has_value()) << maybe_joint_info.error();
@@ -691,9 +701,9 @@ TEST_F(RoboPlanSceneTest, TestPositionLimitsOverrideWrongSizeThrows) {
            "    max_position: [1.0, 2.0]\n";  // joint nv is 1, so this is invalid.
   }
 
-  EXPECT_THROW(Scene("bad_size_scene", loadUrdfSceneDescription(urdf_path, srdf_path),
-                     package_paths, tmp_config),
-               std::runtime_error);
+  EXPECT_THROW(
+      Scene("bad_size_scene", loadUrdfSceneDescription(urdf_path, package_paths), tmp_config),
+      std::runtime_error);
 
   std::filesystem::remove(tmp_config);
 }
@@ -707,11 +717,14 @@ protected:
     const auto model_prefix = example_models::get_package_models_dir();
     const std::vector<std::filesystem::path> package_paths = {
         example_models::get_package_share_dir()};
-    scene = std::make_unique<Scene>(
-        "test_scene",
-        loadUrdfSceneDescription(model_prefix / "so101_robot_model" / "so101.urdf",
-                                 model_prefix / "so101_robot_model" / "so101.srdf"),
-        package_paths);
+    const auto description =
+        loadUrdfSceneDescription(model_prefix / "so101_robot_model" / "so101.urdf", package_paths);
+    scene = std::make_unique<Scene>("test_scene", description);
+    if (const auto imported =
+            scene->importSrdf(loadTextFile(model_prefix / "so101_robot_model" / "so101.srdf"));
+        !imported) {
+      throw std::runtime_error(imported.error());
+    }
   }
 
 public:

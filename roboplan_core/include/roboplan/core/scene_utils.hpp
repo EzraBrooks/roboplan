@@ -3,6 +3,7 @@
 #include <map>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include <pinocchio/multibody/model.hpp>
 #include <yaml-cpp/yaml.h>
@@ -41,12 +42,23 @@ createFrameMap(const pinocchio::Model& model);
 std::unordered_map<std::string, JointGroupInfo>
 createDefaultJointGroupInfo(const pinocchio::Model& model);
 
-/// @brief Creates joint groups from an SRDF, including the default whole-model group.
+/// @brief Collects joint names from a kinematic chain between two links.
 /// @param model The Pinocchio model.
-/// @param srdf The SRDF file contents.
-/// @return The map of robot joint group names to group info.
-std::unordered_map<std::string, JointGroupInfo> createJointGroupInfo(const pinocchio::Model& model,
-                                                                     const std::string& srdf);
+/// @param base_link The name of the chain's base link.
+/// @param tip_link The name of the chain's tip link.
+/// @return Joint names from base to tip, excluding the base link's parent joint, if successful.
+tl::expected<std::vector<std::string>, std::string>
+jointNamesFromChain(const pinocchio::Model& model, const std::string& base_link,
+                    const std::string& tip_link);
+
+/// @brief Builds joint group metadata from a list of joints.
+/// @param model The Pinocchio model.
+/// @param joint_names The joints that make up the group, in user-specified order.
+/// @param extra_link_names Additional link names to include besides those driven by the joints.
+/// @return The group info if successful, else a string describing the error.
+tl::expected<JointGroupInfo, std::string>
+makeJointGroupInfo(const pinocchio::Model& model, const std::vector<std::string>& joint_names,
+                   const std::vector<std::string>& extra_link_names = {});
 
 /// @brief Collapses a joint position vector's continuous joints for downstream algorithms.
 /// @details That is, positions that are expressed as [cos(theta), sin(theta)] will be collapsed

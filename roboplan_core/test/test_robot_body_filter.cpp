@@ -1,5 +1,6 @@
 #include <memory>
 #include <random>
+#include <stdexcept>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -37,19 +38,28 @@ constexpr const char* kBallUrdf = R"(
 constexpr const char* kBallSrdf = R"(<robot name="ball_bot"/>)";
 
 std::shared_ptr<Scene> makeBallScene() {
-  return std::make_shared<Scene>(
-      "ball_scene",
-      UrdfSceneDescription{.urdf_xml = std::string(kBallUrdf), .srdf_xml = std::string(kBallSrdf)});
+  auto scene = std::make_shared<Scene>("ball_scene",
+                                       loadUrdfSceneDescriptionFromXml(std::string(kBallUrdf)));
+  const auto imported = scene->importSrdf(kBallSrdf);
+  if (!imported) {
+    throw std::runtime_error(imported.error());
+  }
+  return scene;
 }
 
 std::shared_ptr<Scene> makeUr5Scene() {
   const auto model_prefix = example_models::get_package_models_dir();
-  return std::make_shared<Scene>(
-      "ur5_scene",
+  const auto description =
       loadUrdfSceneDescription(model_prefix / "ur_robot_model" / "ur5_gripper.urdf",
-                               model_prefix / "ur_robot_model" / "ur5_gripper.srdf"),
-      std::vector<std::filesystem::path>{example_models::get_package_share_dir()},
-      model_prefix / "ur_robot_model" / "ur5_config.yaml");
+                               {example_models::get_package_share_dir()});
+  auto scene = std::make_shared<Scene>("ur5_scene", description,
+                                       model_prefix / "ur_robot_model" / "ur5_config.yaml");
+  const auto imported =
+      scene->importSrdf(loadTextFile(model_prefix / "ur_robot_model" / "ur5_gripper.srdf"));
+  if (!imported) {
+    throw std::runtime_error(imported.error());
+  }
+  return scene;
 }
 
 }  // namespace

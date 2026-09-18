@@ -11,7 +11,7 @@ import xacro
 from common import get_model_data
 from pinocchio.visualize import ViserVisualizer
 
-from roboplan.core import CartesianConfiguration, Scene, UrdfSceneDescription
+from roboplan.core import CartesianConfiguration, Scene, loadUrdfSceneDescriptionFromXml
 from roboplan.example_models import get_package_share_dir
 from roboplan.filters import SE3LowPassFilter
 from roboplan.optimal_ik import (
@@ -86,10 +86,10 @@ def main(
 
     scene = Scene(
         "oink_scene",
-        UrdfSceneDescription(urdf_xml, srdf_xml),
-        package_paths=package_paths,
+        loadUrdfSceneDescriptionFromXml(urdf_xml, package_paths),
         yaml_config_path=model_data.yaml_config_path,
     )
+    scene.importSrdf(srdf_xml)
 
     # Print joint information
     print(f"\n=== Model: {model} ===")

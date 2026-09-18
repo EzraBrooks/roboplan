@@ -182,26 +182,16 @@ void init_core_geometry_wrappers(nanobind::module_& m) {
 }
 
 void init_core_scene(nanobind::module_& m) {
-  nanobind::class_<UrdfSceneDescription>(
-      m, "UrdfSceneDescription",
-      "URDF robot description and optional SRDF planning configuration documents.")
-      .def(nanobind::init<const std::string&, const std::optional<std::string>&>(), "urdf_xml"_a,
-           "srdf_xml"_a = nanobind::none())
-      .def_rw("urdf_xml", &UrdfSceneDescription::urdf_xml)
-      .def_rw("srdf_xml", &UrdfSceneDescription::srdf_xml);
-  m.def("loadUrdfSceneDescription", &loadUrdfSceneDescription, "urdf_path"_a,
-        "srdf_path"_a = nanobind::none());
-
   nanobind::class_<PinocchioSceneDescription>(m, "PinocchioSceneDescription",
-                                              "Prebuilt Pinocchio model and collision geometry.");
+                                              "Pinocchio model and collision geometry.");
+  m.def("loadTextFile", &loadTextFile, "path"_a);
+  m.def("loadUrdfSceneDescriptionFromXml", &loadUrdfSceneDescriptionFromXml, "urdf_xml"_a,
+        "package_paths"_a = std::vector<std::filesystem::path>());
+  m.def("loadUrdfSceneDescription", &loadUrdfSceneDescription, "urdf_path"_a,
+        "package_paths"_a = std::vector<std::filesystem::path>());
   m.def("loadMjcfModel", &loadMjcfModel, "mjcf_path"_a);
 
   nanobind::class_<Scene>(m, "Scene", "Primary scene representation for planning and control.")
-      .def(
-          nanobind::init<const std::string&, const UrdfSceneDescription&,
-                         const std::vector<std::filesystem::path>&, const std::filesystem::path&>(),
-          "name"_a, "description"_a, "package_paths"_a = std::vector<std::filesystem::path>(),
-          "yaml_config_path"_a = std::filesystem::path())
       .def(nanobind::init<const std::string&, const PinocchioSceneDescription&,
                           const std::filesystem::path&>(),
            "name"_a, "description"_a, "yaml_config_path"_a = std::filesystem::path())
@@ -289,6 +279,16 @@ void init_core_scene(nanobind::module_& m) {
            "Get the Pinocchio model ID of a frame by its name.", "name"_a)
       .def("getJointGroupInfo", unwrap_expected(&Scene::getJointGroupInfo),
            "Get the joint group information of a scene by its name.", "name"_a)
+      .def("importSrdf", unwrap_expected(&Scene::importSrdf),
+           "Applies groups and disabled collision pairs from an SRDF document.", "srdf_xml"_a)
+      .def("addGroupFromChain", unwrap_expected(&Scene::addGroupFromChain),
+           "Adds a joint group defined by a kinematic chain.", "name"_a, "base_link"_a,
+           "tip_link"_a)
+      .def("addGroupFromGroups", unwrap_expected(&Scene::addGroupFromGroups),
+           "Adds a joint group by concatenating existing groups.", "name"_a, "group_names"_a)
+      .def("addGroup", unwrap_expected(&Scene::addGroup),
+           "Adds a joint group from an explicit list of joints.", "name"_a, "joint_names"_a,
+           "extra_link_names"_a = std::vector<std::string>{})
       .def("getCurrentJointPositions", &Scene::getCurrentJointPositions,
            "Get the current Pinocchio configuration vector (model.nq).")
       .def("getCurrentJointPositionsWithMimics", &Scene::getCurrentJointPositionsWithMimics,

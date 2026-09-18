@@ -24,7 +24,7 @@ from roboplan.core import (
     CartesianConfiguration,
     JointConfiguration,
     Scene,
-    UrdfSceneDescription,
+    loadUrdfSceneDescriptionFromXml,
 )
 from roboplan.example_models import get_package_share_dir
 from roboplan.rrt import (
@@ -255,10 +255,10 @@ def main(
     package_paths = [get_package_share_dir()]
     scene = Scene(
         "constrained_rrt_scene",
-        UrdfSceneDescription(urdf_xml, srdf_xml),
-        package_paths=package_paths,
+        loadUrdfSceneDescriptionFromXml(urdf_xml, package_paths),
         yaml_config_path=model_data.yaml_config_path,
     )
+    scene.importSrdf(srdf_xml)
 
     # Create a redundant Pinocchio model just for visualization with mimic joints.
     pin_model = pin.buildModelFromXML(urdf_xml, mimic=True)

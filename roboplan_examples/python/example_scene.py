@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from pathlib import Path
+
 import numpy as np
 from common import get_model_data
 
@@ -19,9 +21,10 @@ if __name__ == "__main__":
     model_data = get_model_data()[model]
     package_paths = [get_package_share_dir()]
 
+    description = loadUrdfSceneDescription(model_data.urdf_path, package_paths)
     scene = Scene(
         "test_scene",
-        loadUrdfSceneDescription(model_data.urdf_path, model_data.srdf_path),
-        package_paths,
+        description,
     )
+    scene.importSrdf(Path(model_data.srdf_path).read_text())
     print(scene)

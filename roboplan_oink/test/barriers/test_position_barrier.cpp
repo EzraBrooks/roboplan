@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <limits>
 #include <memory>
+#include <stdexcept>
 
 #include <roboplan/core/scene.hpp>
 #include <roboplan_example_models/resources.hpp>
@@ -36,8 +37,11 @@ protected:
     srdf_path_ = model_prefix / "ur_robot_model" / "ur5_gripper.srdf";
     package_paths_ = {example_models::get_package_share_dir()};
     yaml_config_path_ = model_prefix / "ur_robot_model" / "ur5_config.yaml";
-    scene_ = std::make_shared<Scene>("test_scene", loadUrdfSceneDescription(urdf_path_, srdf_path_),
-                                     package_paths_, yaml_config_path_);
+    const auto description = loadUrdfSceneDescription(urdf_path_, package_paths_);
+    scene_ = std::make_shared<Scene>("test_scene", description, yaml_config_path_);
+    if (const auto imported = scene_->importSrdf(loadTextFile(srdf_path_)); !imported) {
+      throw std::runtime_error(imported.error());
+    }
     oink_ = std::make_shared<Oink>(*scene_);
 
     num_variables_ = scene_->getModel().nv;

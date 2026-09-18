@@ -16,7 +16,12 @@ from roboplan.cartesian_planning import (
     CartesianPlannerOptions,
     CartesianSpeedMode,
 )
-from roboplan.core import CartesianPath, JointConfiguration, Scene, UrdfSceneDescription
+from roboplan.core import (
+    CartesianPath,
+    JointConfiguration,
+    Scene,
+    loadUrdfSceneDescriptionFromXml,
+)
 from roboplan.example_models import get_package_share_dir
 from roboplan.visualization import (
     plotJointTrajectory,
@@ -204,10 +209,10 @@ def main(
 
     scene = Scene(
         "cartesian_scene",
-        UrdfSceneDescription(urdf_xml, srdf_xml),
-        package_paths=package_paths,
+        loadUrdfSceneDescriptionFromXml(urdf_xml, package_paths),
         yaml_config_path=model_data.yaml_config_path,
     )
+    scene.importSrdf(srdf_xml)
 
     # Place the robot at its home configuration, which serves as the IK seed.
     q_full = get_home_configuration(scene, model_data)

@@ -40,7 +40,7 @@ from roboplan.core import (
     CartesianTrajectory,
     JointTrajectory,
     Scene,
-    UrdfSceneDescription,
+    loadUrdfSceneDescriptionFromXml,
 )
 from roboplan.example_models import get_package_share_dir
 from roboplan.interpolation import (
@@ -330,10 +330,10 @@ def main(
 
     scene = Scene(
         "policy_action_chunk_scene",
-        UrdfSceneDescription(urdf_xml, srdf_xml),
-        package_paths=package_paths,
+        loadUrdfSceneDescriptionFromXml(urdf_xml, package_paths),
         yaml_config_path=model_data.yaml_config_path,
     )
+    scene.importSrdf(srdf_xml)
 
     joint_group = model_data.default_joint_group
     joint_names = scene.getJointGroupInfo(joint_group).joint_names

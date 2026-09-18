@@ -4,8 +4,7 @@
 #include <optional>
 #include <stdexcept>
 #include <unordered_set>
-
-#include <tinyxml2.h>
+#include <vector>
 
 #include <pinocchio/collision/collision.hpp>
 
@@ -63,182 +62,108 @@ createFrameMap(const pinocchio::Model& model) {
   return frame_map;
 }
 
-std::unordered_map<std::string, JointGroupInfo> createJointGroupInfo(const pinocchio::Model& model,
-                                                                     const std::string& srdf) {
-  auto joint_group_map = createDefaultJointGroupInfo(model);
-
-  // Parse the document with TinyXML2.
-  tinyxml2::XMLDocument doc;
-  doc.Parse(srdf.c_str());
-  tinyxml2::XMLElement* robot = doc.FirstChildElement("robot");
-  if (robot == nullptr) {
-    throw std::runtime_error("No <robot> tag found in the SRDF file!");
+tl::expected<std::vector<std::string>, std::string>
+jointNamesFromChain(const pinocchio::Model& model, const std::string& base_link,
+                    const std::string& tip_link) {
+  const auto tip_frame_id = model.getFrameId(tip_link);
+  if (tip_frame_id >= static_cast<size_t>(model.nframes)) {
+    return tl::make_unexpected("Tip link '" + tip_link + "' not found in the model.");
+  }
+  const auto base_frame_id = model.getFrameId(base_link);
+  if (base_frame_id >= static_cast<size_t>(model.nframes)) {
+    return tl::make_unexpected("Base link '" + base_link + "' not found in the model.");
   }
 
-  // Loop through all the "group" elements.
-  for (tinyxml2::XMLElement* group = robot->FirstChildElement("group"); group != nullptr;
-       group = group->NextSiblingElement("group")) {
-    const char* name;
-    if (group->QueryStringAttribute("name", &name) != tinyxml2::XML_SUCCESS) {
-      throw std::runtime_error("Found an invalid group with no name in the SRDF!");
+  const auto base_link_parent_joint_id = model.frames.at(base_frame_id).parentJoint;
+  std::vector<int> joint_indices;
+  auto cur_frame_id = tip_frame_id;
+  while (true) {
+    const auto& frame = model.frames.at(cur_frame_id);
+    const auto parent_joint_id = frame.parentJoint;
+
+    // Sometimes the parent frame of a joint is rigidly attached to the chain's base link,
+    // but is not the parent frame itself, so we should check that as well.
+    if (parent_joint_id == base_link_parent_joint_id) {
+      break;
     }
 
-    JointGroupInfo group_info;
-
-    // Accumulate the group's links in a set so duplicates collapse automatically.
-    std::unordered_set<std::string> link_name_set;
-
-    // There are a few valid elements in groups: "link", "joint", "chain", and "group".
-    for (tinyxml2::XMLElement* child = group->FirstChildElement(); child != nullptr;
-         child = child->NextSiblingElement()) {
-      const std::string elem_name = child->Name();
-      if (elem_name == "link") {
-        // Links can be manually specified to be part of a group in the SRDF.
-        const char* link_name;
-        if (child->QueryStringAttribute("name", &link_name) != tinyxml2::XML_SUCCESS) {
-          throw std::runtime_error("Group '" + std::string(name) +
-                                   "' specifies a link with no name in the SRDF!");
-        }
-        link_name_set.insert(link_name);
-      } else if (elem_name == "joint") {
-        // The joint case is straightforward; just add the joint name.
-        const char* joint_name;
-        if (child->QueryStringAttribute("name", &joint_name) != tinyxml2::XML_SUCCESS) {
-          throw std::runtime_error("Group '" + std::string(name) +
-                                   "' specifies a joint with no name in the SRDF!");
-        }
-        const auto joint_id = model.getJointId(joint_name);
-        if (joint_id >= static_cast<size_t>(model.njoints)) {
-          continue;
-        }
-        group_info.joint_names.push_back(joint_name);
-        group_info.joint_indices.push_back(joint_id);
-      } else if (elem_name == "chain") {
-        // In the chain case, we must recurse from the specified tip frame all the way
-        // up to the base frame, collecting all joints along the way.
-        const char* base_link;
-        if (child->QueryStringAttribute("base_link", &base_link) != tinyxml2::XML_SUCCESS) {
-          throw std::runtime_error("Group '" + std::string(name) +
-                                   "' chain specifies no 'base_link' attribute in the SRDF!");
-        }
-        const char* tip_link;
-        if (child->QueryStringAttribute("tip_link", &tip_link) != tinyxml2::XML_SUCCESS) {
-          throw std::runtime_error("Group '" + std::string(name) +
-                                   "' chain specifies no 'tip_link' attribute in the SRDF!");
-        }
-
-        auto cur_frame_id = model.getFrameId(tip_link);
-        const auto base_frame_id = model.getFrameId(base_link);
-        const auto base_link_parent_joint_id = model.frames.at(base_frame_id).parentJoint;
-        std::vector<int> joint_indices;
-        while (true) {
-          const auto& frame = model.frames.at(cur_frame_id);
-          const auto parent_joint_id = frame.parentJoint;
-
-          // Sometimes the parent frame of a joint is rigidly attached to the chain's base link,
-          // but is not the parent frame itself, so we should check that as well.
-          if (parent_joint_id == base_link_parent_joint_id) {
-            break;
-          }
-
-          const auto& parent_joint_name = model.names.at(parent_joint_id);
-          joint_indices.push_back(parent_joint_id);
-          cur_frame_id = model.frames.at(model.getFrameId(parent_joint_name)).parentFrame;
-          if (cur_frame_id == base_frame_id) {
-            break;
-          }
-          if (cur_frame_id == 0) {
-            throw std::runtime_error("Recursed the whole robot model for chain in group '" +
-                                     std::string(name) + "' and did not find the base frame!");
-          }
-        }
-        // Add the joint information in the reverse order.
-        for (auto it = joint_indices.rbegin(); it != joint_indices.rend(); ++it) {
-          group_info.joint_names.push_back(model.names.at(*it));
-          group_info.joint_indices.push_back(*it);
-        }
-      } else if (elem_name == "group") {
-        // In the group case, just add the joints from the parent group.
-        // The parent group must be defined first in the SRDF file!
-        const char* group_name;
-        if (child->QueryStringAttribute("name", &group_name) != tinyxml2::XML_SUCCESS) {
-          throw std::runtime_error("Group '" + std::string(name) +
-                                   "' specifies a subgroup with no name in the SRDF!");
-        }
-        auto it = joint_group_map.find(group_name);
-        if (it == joint_group_map.end()) {
-          throw std::runtime_error("Group '" + std::string(name) + "' specifies a subgroup '" +
-                                   std::string(group_name) +
-                                   "' which has not yet been parsed in the SRDF.");
-        }
-        const auto& subgroup_info = it->second;
-        group_info.joint_names.insert(group_info.joint_names.end(),
-                                      subgroup_info.joint_names.begin(),
-                                      subgroup_info.joint_names.end());
-        group_info.joint_indices.insert(group_info.joint_indices.end(),
-                                        subgroup_info.joint_indices.begin(),
-                                        subgroup_info.joint_indices.end());
-        link_name_set.insert(subgroup_info.link_names.begin(), subgroup_info.link_names.end());
-      }
+    const auto& parent_joint_name = model.names.at(parent_joint_id);
+    joint_indices.push_back(parent_joint_id);
+    cur_frame_id = model.frames.at(model.getFrameId(parent_joint_name)).parentFrame;
+    if (cur_frame_id == base_frame_id) {
+      break;
     }
-
-    // Now that all the group's joints are known, collect the links that they drive.
-    // A single moving joint can support multiple links: the link it actuates plus any links rigidly
-    // attached to it through fixed joints, which Pinocchio collapses into the same parent joint.
-    for (const auto jid : group_info.joint_indices) {
-      for (const auto& frame : model.frames) {
-        if (frame.type == pinocchio::BODY && frame.parentJoint == jid) {
-          link_name_set.insert(frame.name);
-        }
-      }
+    if (cur_frame_id == 0) {
+      return tl::make_unexpected("Did not find base link '" + base_link +
+                                 "' while walking the chain from tip link '" + tip_link + "'.");
     }
-
-    group_info.link_names.assign(link_name_set.begin(), link_name_set.end());
-
-    // Once we've defined all joint names in the group, compute the position and velocity indices.
-    std::vector<int> q_indices;
-    std::vector<int> v_indices;
-    size_t num_joints_with_continuous_dofs = 0;
-    for (const auto jid : group_info.joint_indices) {
-      const auto& joint = model.joints.at(jid);
-      const auto& q_idx = model.idx_qs.at(jid);
-      for (int dof = 0; dof < joint.nq(); ++dof) {
-        q_indices.push_back(q_idx + dof);
-      }
-      const auto& v_idx = model.idx_vs.at(jid);
-      for (int dof = 0; dof < joint.nv(); ++dof) {
-        v_indices.push_back(v_idx + dof);
-      }
-
-      // Check for any continuous degrees of freedom.
-      auto it = kPinocchioJointTypeMap.find(joint.shortname());
-      if (it == kPinocchioJointTypeMap.end()) {
-        throw std::runtime_error("Unsupported Pinocchio joint type: '" + joint.shortname() + "'");
-      }
-      const auto joint_type = it->second;
-
-      if (joint_type == JointType::CONTINUOUS || joint_type == JointType::PLANAR) {
-        num_joints_with_continuous_dofs += 1;
-      }
-    }
-    group_info.nq_collapsed = q_indices.size() - num_joints_with_continuous_dofs;
-    if (num_joints_with_continuous_dofs > 0) {
-      group_info.has_continuous_dofs = true;
-    }
-
-    group_info.q_indices.resize(q_indices.size());
-    for (size_t idx = 0; idx < q_indices.size(); ++idx) {
-      group_info.q_indices(idx) = q_indices.at(idx);
-    }
-    group_info.v_indices.resize(v_indices.size());
-    for (size_t idx = 0; idx < v_indices.size(); ++idx) {
-      group_info.v_indices(idx) = v_indices.at(idx);
-    }
-
-    joint_group_map[name] = group_info;
   }
 
-  return joint_group_map;
+  std::vector<std::string> joint_names;
+  joint_names.reserve(joint_indices.size());
+  for (auto it = joint_indices.rbegin(); it != joint_indices.rend(); ++it) {
+    joint_names.push_back(model.names.at(*it));
+  }
+  return joint_names;
+}
+
+tl::expected<JointGroupInfo, std::string>
+makeJointGroupInfo(const pinocchio::Model& model, const std::vector<std::string>& joint_names,
+                   const std::vector<std::string>& extra_link_names) {
+  std::vector<std::vector<std::string>> bodies_by_joint(static_cast<size_t>(model.njoints));
+  for (const auto& frame : model.frames) {
+    if (frame.type == pinocchio::BODY) {
+      bodies_by_joint.at(frame.parentJoint).push_back(frame.name);
+    }
+  }
+
+  std::vector<size_t> joint_indices;
+  std::unordered_set<std::string> link_name_set(extra_link_names.begin(), extra_link_names.end());
+  std::vector<int> q_indices;
+  std::vector<int> v_indices;
+  size_t num_joints_with_continuous_dofs = 0;
+  for (const auto& joint_name : joint_names) {
+    const auto joint_id = model.getJointId(joint_name);
+    if (joint_id >= static_cast<size_t>(model.njoints)) {
+      return tl::make_unexpected("Joint '" + joint_name + "' is not in the model.");
+    }
+    joint_indices.push_back(joint_id);
+
+    // A single moving joint can support multiple links: the link it actuates plus any links
+    // rigidly attached to it through fixed joints, which Pinocchio collapses into the same
+    // parent joint.
+    for (const auto& link_name : bodies_by_joint.at(joint_id)) {
+      link_name_set.insert(link_name);
+    }
+
+    const auto& joint = model.joints.at(joint_id);
+    const auto& q_idx = model.idx_qs.at(joint_id);
+    for (int dof = 0; dof < joint.nq(); ++dof) {
+      q_indices.push_back(q_idx + dof);
+    }
+    const auto& v_idx = model.idx_vs.at(joint_id);
+    for (int dof = 0; dof < joint.nv(); ++dof) {
+      v_indices.push_back(v_idx + dof);
+    }
+
+    auto it = kPinocchioJointTypeMap.find(joint.shortname());
+    if (it == kPinocchioJointTypeMap.end()) {
+      return tl::make_unexpected("Unsupported Pinocchio joint type: '" + joint.shortname() + "'");
+    }
+    if (it->second == JointType::CONTINUOUS || it->second == JointType::PLANAR) {
+      num_joints_with_continuous_dofs += 1;
+    }
+  }
+
+  return JointGroupInfo{.joint_names = joint_names,
+                        .joint_indices = std::move(joint_indices),
+                        .link_names = {link_name_set.begin(), link_name_set.end()},
+                        .q_indices = Eigen::VectorXi::Map(
+                            q_indices.data(), static_cast<Eigen::Index>(q_indices.size())),
+                        .v_indices = Eigen::VectorXi::Map(
+                            v_indices.data(), static_cast<Eigen::Index>(v_indices.size())),
+                        .has_continuous_dofs = num_joints_with_continuous_dofs > 0,
+                        .nq_collapsed = q_indices.size() - num_joints_with_continuous_dofs};
 }
 
 std::unordered_map<std::string, JointGroupInfo>
