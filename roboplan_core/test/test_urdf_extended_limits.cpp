@@ -19,7 +19,7 @@ const std::string kSrdf = R"(
 
 // All three extended limit attributes explicitly set.
 const std::string kUrdfAllLimits = R"(
-<robot name="robot">
+<robot name="robot" version="1.2">
   <link name="base_link"/>
   <link name="link1"/>
   <joint name="joint1" type="revolute">
@@ -35,7 +35,7 @@ const std::string kUrdfAllLimits = R"(
 
 // Only acceleration set; jerk should stay unlimited.
 const std::string kUrdfAccelOnly = R"(
-<robot name="robot">
+<robot name="robot" version="1.2">
   <link name="base_link"/>
   <link name="link1"/>
   <joint name="joint1" type="revolute">
@@ -51,7 +51,7 @@ const std::string kUrdfAccelOnly = R"(
 
 // No extended attributes — both should stay unlimited.
 const std::string kUrdfNoExtendedLimits = R"(
-<robot name="robot">
+<robot name="robot" version="1.2">
   <link name="base_link"/>
   <link name="link1"/>
   <joint name="joint1" type="revolute">
@@ -66,7 +66,7 @@ const std::string kUrdfNoExtendedLimits = R"(
 
 // For YAML override test: URDF has 5.0/50.0, YAML overrides to 10.0/100.0.
 const std::string kUrdfForYamlOverride = R"(
-<robot name="robot">
+<robot name="robot" version="1.2">
   <link name="base_link"/>
   <link name="link1"/>
   <joint name="joint1" type="revolute">
@@ -82,7 +82,7 @@ const std::string kUrdfForYamlOverride = R"(
 
 // Mimic joint test.
 const std::string kUrdfWithMimic = R"(
-<robot name="robot">
+<robot name="robot" version="1.2">
   <link name="base_link"/>
   <link name="link1"/>
   <link name="link2"/>

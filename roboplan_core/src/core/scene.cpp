@@ -91,19 +91,17 @@ Scene::Scene(const std::string& name, const UrdfSceneDescription& description,
   const auto joint_group_info_map = description.srdf_xml.has_value()
                                         ? createJointGroupInfo(model_, *description.srdf_xml)
                                         : createDefaultJointGroupInfo(model_);
-  initialize(yaml_config_path, parseUrdfExtendedJointLimits(description.urdf_xml),
-             joint_group_info_map);
+  initialize(yaml_config_path, joint_group_info_map);
 }
 
 Scene::Scene(const std::string& name, const PinocchioSceneDescription& description,
              const std::filesystem::path& yaml_config_path)
     : name_{name}, model_{description.model}, collision_model_{description.collision_model} {
-  initialize(yaml_config_path, {}, createDefaultJointGroupInfo(model_));
+  initialize(yaml_config_path, createDefaultJointGroupInfo(model_));
 }
 
 void Scene::initialize(
     const std::filesystem::path& yaml_config_path,
-    const std::unordered_map<std::string, UrdfExtendedJointLimits>& urdf_extended_limits,
     const std::unordered_map<std::string, JointGroupInfo>& joint_group_info_map) {
   YAML::Node yaml_config;
   if (!yaml_config_path.empty() && !std::filesystem::is_directory(yaml_config_path)) {
@@ -160,7 +158,7 @@ void Scene::initialize(
     }
     q_idx += info.num_position_dofs;
 
-    overrideJointLimitsFromYaml(model_, yaml_config, urdf_extended_limits, joint_name, info);
+    overrideJointLimitsFromYaml(model_, yaml_config, joint_name, info);
 
     joint_info_map_.emplace(joint_name, info);
   }

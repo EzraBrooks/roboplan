@@ -161,7 +161,7 @@ With Pixi
 **Supported platforms:** Linux, macOS, Windows
 
 The Pixi workflow also provides ROS dependencies through `RoboStack <https://robostack.github.io/>`_, with no system install required.
-Each supported distro is its own Pixi environment: ``rolling``, ``lyrical``, ``kilted``, ``jazzy``, ``humble``.
+Each supported distro is its own Pixi environment: ``rolling``, ``lyrical``, ``kilted``, ``jazzy``.
 
 Use the following to build and execute with ``colcon``.
 

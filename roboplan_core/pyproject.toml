@@ -39,7 +39,7 @@ config = { extra-args = ["-DBUILD_PYTHON_BINDINGS=ON", "-DGENERATE_PYTHON_STUBS=
 # Conda package "host dependencies"; libraries required to build the package
 [tool.pixi.package.host-dependencies]
 eigen = ">=3.4"
-pinocchio = ">=4.0.0,<5"
+pinocchio = ">=4.1.0,<5"
 yaml-cpp = ">=0.8.0,<0.9"
 python = { workspace = true }
 nanobind = { workspace = true }
