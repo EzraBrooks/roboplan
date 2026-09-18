@@ -1175,37 +1175,36 @@ Scene::getCollisionGeometryIds(const std::string& body) {
   return collision_geom_ids;
 }
 
-tl::expected<void, std::string>
-Scene::updateCollisionPairs(const std::string& body1, const std::string& body2, const bool enable) {
-  const auto maybe_body1_collision_geom_ids = getCollisionGeometryIds(body1);
-  if (!maybe_body1_collision_geom_ids) {
-    return tl::make_unexpected("Could not set collisions: " +
-                               maybe_body1_collision_geom_ids.error());
-  }
-  const auto maybe_body2_collision_geom_ids = getCollisionGeometryIds(body2);
-  if (!maybe_body2_collision_geom_ids) {
-    return tl::make_unexpected("Could not set collisions: " +
-                               maybe_body2_collision_geom_ids.error());
-  }
-
-  for (const auto& body1_id : maybe_body1_collision_geom_ids.value()) {
-    for (const auto& body2_id : maybe_body2_collision_geom_ids.value()) {
-      const auto pair = pinocchio::CollisionPair(body1_id, body2_id);
-      if (enable) {
-        collision_model_.addCollisionPair(pair);
-      } else {
-        collision_model_.removeCollisionPair(pair);
-      }
-    }
-  }
-  return {};
-}
-
 tl::expected<void, std::string> Scene::setCollisions(const std::string& body1,
                                                      const std::string& body2, const bool enable) {
-  const auto updated = updateCollisionPairs(body1, body2, enable);
-  if (!updated) {
-    return updated;
+  return setCollisions({{body1, body2}}, enable);
+}
+
+tl::expected<void, std::string>
+Scene::setCollisions(const std::vector<std::pair<std::string, std::string>>& pairs,
+                     const bool enable) {
+  for (const auto& [body1, body2] : pairs) {
+    const auto maybe_body1_collision_geom_ids = getCollisionGeometryIds(body1);
+    if (!maybe_body1_collision_geom_ids) {
+      return tl::make_unexpected("Could not set collisions: " +
+                                 maybe_body1_collision_geom_ids.error());
+    }
+    const auto maybe_body2_collision_geom_ids = getCollisionGeometryIds(body2);
+    if (!maybe_body2_collision_geom_ids) {
+      return tl::make_unexpected("Could not set collisions: " +
+                                 maybe_body2_collision_geom_ids.error());
+    }
+
+    for (const auto& body1_id : maybe_body1_collision_geom_ids.value()) {
+      for (const auto& body2_id : maybe_body2_collision_geom_ids.value()) {
+        const auto pair = pinocchio::CollisionPair(body1_id, body2_id);
+        if (enable) {
+          collision_model_.addCollisionPair(pair);
+        } else {
+          collision_model_.removeCollisionPair(pair);
+        }
+      }
+    }
   }
   collision_model_data_ = pinocchio::GeometryData(collision_model_);
   rebuildBroadphaseManager();
@@ -1220,20 +1219,16 @@ tl::expected<void, std::string> Scene::allowAdjacentLinkCollisions() {
     }
   }
 
+  std::vector<std::pair<std::string, std::string>> pairs;
   for (int jid = 1; jid < model_.njoints; ++jid) {
     const auto parent_jid = model_.parents.at(jid);
     for (const auto& child_link : links_by_joint.at(jid)) {
       for (const auto& parent_link : links_by_joint.at(parent_jid)) {
-        const auto result = updateCollisionPairs(child_link, parent_link, false);
-        if (!result) {
-          return result;
-        }
+        pairs.emplace_back(child_link, parent_link);
       }
     }
   }
-  collision_model_data_ = pinocchio::GeometryData(collision_model_);
-  rebuildBroadphaseManager();
-  return {};
+  return setCollisions(pairs, false);
 }
 
 std::ostream& operator<<(std::ostream& os, const Scene& scene) {

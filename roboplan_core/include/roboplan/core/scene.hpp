@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include <pinocchio/algorithm/frames.hpp>
@@ -552,6 +553,13 @@ public:
   tl::expected<void, std::string> setCollisions(const std::string& body1, const std::string& body2,
                                                 const bool enable);
 
+  /// @brief Sets the allowable collisions for many body pairs, rebuilding collision data once.
+  /// @param pairs Body name pairs. Names can be model frame names or collision geometry names.
+  /// @param enable If true, enables each pair; if false, disables each pair.
+  /// @return Void if successful, else a string describing the error.
+  tl::expected<void, std::string>
+  setCollisions(const std::vector<std::pair<std::string, std::string>>& pairs, const bool enable);
+
   /// @brief Allows collisions between every parent-child link pair in the kinematic tree.
   /// @details Almost all robots need this since adjacent link geometries may overlap across joint
   /// boundaries and cause collision checking to fail on valid configurations. Consider calling this
@@ -564,8 +572,6 @@ public:
 
 private:
   void initialize(const std::filesystem::path& yaml_config_path);
-  tl::expected<void, std::string> updateCollisionPairs(const std::string& body1,
-                                                       const std::string& body2, bool enable);
 
   /// @brief The name of the scene.
   std::string name_;

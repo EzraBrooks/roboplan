@@ -551,8 +551,15 @@ class Scene:
         Gets the collision geometry IDs belonging to the robot model itself (excluding objects added to the scene).
         """
 
+    @overload
     def setCollisions(self, body1: str, body2: str, enable: bool) -> None:
         """Sets the allowable collisions for a pair of bodies in the model."""
+
+    @overload
+    def setCollisions(self, pairs: Sequence[tuple[str, str]], enable: bool) -> None:
+        """
+        Sets the allowable collisions for many body pairs, rebuilding collision data once.
+        """
 
     def allowAdjacentLinkCollisions(self) -> None:
         """

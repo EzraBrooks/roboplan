@@ -332,9 +332,18 @@ void init_core_scene(nanobind::module_& m) {
       .def("getRobotCollisionGeometryIds", &Scene::getRobotCollisionGeometryIds,
            "Gets the collision geometry IDs belonging to the robot model itself (excluding "
            "objects added to the scene).")
-      .def("setCollisions", unwrap_expected(&Scene::setCollisions),
+      .def("setCollisions",
+           unwrap_expected(
+               nanobind::overload_cast<const std::string&, const std::string&, const bool>(
+                   &Scene::setCollisions)),
            "Sets the allowable collisions for a pair of bodies in the model.", "body1"_a, "body2"_a,
            "enable"_a)
+      .def("setCollisions",
+           unwrap_expected(
+               nanobind::overload_cast<const std::vector<std::pair<std::string, std::string>>&,
+                                       const bool>(&Scene::setCollisions)),
+           "Sets the allowable collisions for many body pairs, rebuilding collision data once.",
+           "pairs"_a, "enable"_a)
       .def("allowAdjacentLinkCollisions", unwrap_expected(&Scene::allowAdjacentLinkCollisions),
            "Allows collisions between every parent-child link pair in the kinematic tree.")
       .def("__repr__", [](const Scene& scene) {
