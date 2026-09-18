@@ -571,8 +571,6 @@ public:
   friend std::ostream& operator<<(std::ostream& os, const Scene& scene);
 
 private:
-  void initialize(const std::filesystem::path& yaml_config_path);
-
   /// @brief The name of the scene.
   std::string name_;
 

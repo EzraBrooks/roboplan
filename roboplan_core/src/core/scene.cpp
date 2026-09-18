@@ -86,10 +86,6 @@ PinocchioSceneDescription loadMjcfModel(const std::filesystem::path& mjcf_path) 
 Scene::Scene(const std::string& name, const PinocchioSceneDescription& description,
              const std::filesystem::path& yaml_config_path)
     : name_{name}, model_{description.model}, collision_model_{description.collision_model} {
-  initialize(yaml_config_path);
-}
-
-void Scene::initialize(const std::filesystem::path& yaml_config_path) {
   YAML::Node yaml_config;
   if (!yaml_config_path.empty() && !std::filesystem::is_directory(yaml_config_path)) {
     yaml_config = YAML::LoadFile(yaml_config_path.string());
