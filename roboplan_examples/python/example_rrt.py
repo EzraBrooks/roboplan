@@ -16,6 +16,7 @@ from roboplan.core import (
     PathShortcutter,
     PathShortcuttingOptions,
     Scene,
+    UrdfSceneDescription,
 )
 from roboplan.example_models import get_package_share_dir
 from roboplan.rrt import RRT, RRTOptions, visualizeTree
@@ -85,11 +86,9 @@ def main(
     urdf_xml = xacro.process_file(model_data.urdf_path).toxml()
     srdf_xml = xacro.process_file(model_data.srdf_path).toxml()
 
-    # Specify argument names to distinguish overloaded Scene constructors from python.
     scene = Scene(
         "test_scene",
-        urdf=urdf_xml,
-        srdf=srdf_xml,
+        UrdfSceneDescription(urdf_xml, srdf_xml),
         package_paths=package_paths,
         yaml_config_path=model_data.yaml_config_path,
     )

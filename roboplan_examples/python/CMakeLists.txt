@@ -8,6 +8,7 @@ install(
            example_oink_position_barriers.py
            example_oink.py
            example_rrt.py
+           example_rrt_mujoco.py
            example_scene.py
            example_teleop.py
   DESTINATION lib/roboplan_examples)

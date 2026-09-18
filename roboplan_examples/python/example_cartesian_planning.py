@@ -16,7 +16,7 @@ from roboplan.cartesian_planning import (
     CartesianPlannerOptions,
     CartesianSpeedMode,
 )
-from roboplan.core import CartesianPath, JointConfiguration, Scene
+from roboplan.core import CartesianPath, JointConfiguration, Scene, UrdfSceneDescription
 from roboplan.example_models import get_package_share_dir
 from roboplan.visualization import (
     plotJointTrajectory,
@@ -204,8 +204,7 @@ def main(
 
     scene = Scene(
         "cartesian_scene",
-        urdf=urdf_xml,
-        srdf=srdf_xml,
+        UrdfSceneDescription(urdf_xml, srdf_xml),
         package_paths=package_paths,
         yaml_config_path=model_data.yaml_config_path,
     )

@@ -55,7 +55,10 @@ namespace roboplan {
 
 class RoboPlanJointTest : public ::testing::Test {
 protected:
-  void SetUp() override { scene = std::make_unique<Scene>("test_scene", kUrdf, kSrdf); }
+  void SetUp() override {
+    scene = std::make_unique<Scene>("test_scene",
+                                    UrdfSceneDescription{.urdf_xml = kUrdf, .srdf_xml = kSrdf});
+  }
 
 public:
   // No default constructor, so must be a pointer.
@@ -112,7 +115,7 @@ TEST_F(RoboPlanJointTest, JointGroupLinksFromChainAndExplicitLinks) {
   </group>
 </robot>
 )";
-  Scene scene("chain_scene", kUrdf, srdf);
+  Scene scene("chain_scene", UrdfSceneDescription{.urdf_xml = kUrdf, .srdf_xml = srdf});
 
   // The chain from base_link to link3 covers link1, link2, and link3 (base_link is excluded).
   const auto chain_info = scene.getJointGroupInfo("chain_group").value();
@@ -121,6 +124,18 @@ TEST_F(RoboPlanJointTest, JointGroupLinksFromChainAndExplicitLinks) {
   // The explicit group derives link2 from revolute_joint and additionally includes base_link.
   const auto explicit_info = scene.getJointGroupInfo("explicit_group").value();
   EXPECT_THAT(explicit_info.link_names, ::testing::UnorderedElementsAre("base_link", "link2"));
+}
+
+TEST(RoboPlanJointGroupTest, SceneWithoutSrdfExposesOnlyDefaultGroup) {
+  // Omitting the SRDF should still build a scene with the default whole-model joint group, but
+  // without any SRDF-defined groups.
+  Scene scene("no_srdf_scene", UrdfSceneDescription{.urdf_xml = kUrdf});
+
+  const auto default_info = scene.getJointGroupInfo("").value();
+  EXPECT_THAT(default_info.joint_names,
+              ::testing::ElementsAre("continuous_joint", "revolute_joint", "mimic_joint"));
+
+  EXPECT_FALSE(scene.getJointGroupInfo("arm").has_value());
 }
 
 TEST_F(RoboPlanJointTest, CurrentJointPositionsWithMimics) {

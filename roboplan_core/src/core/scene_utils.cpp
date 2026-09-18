@@ -65,7 +65,7 @@ createFrameMap(const pinocchio::Model& model) {
 
 std::unordered_map<std::string, JointGroupInfo> createJointGroupInfo(const pinocchio::Model& model,
                                                                      const std::string& srdf) {
-  std::unordered_map<std::string, JointGroupInfo> joint_group_map;
+  auto joint_group_map = createDefaultJointGroupInfo(model);
 
   // Parse the document with TinyXML2.
   tinyxml2::XMLDocument doc;
@@ -238,7 +238,13 @@ std::unordered_map<std::string, JointGroupInfo> createJointGroupInfo(const pinoc
     joint_group_map[name] = group_info;
   }
 
-  // Create a default empty group with all the indices.
+  return joint_group_map;
+}
+
+std::unordered_map<std::string, JointGroupInfo>
+createDefaultJointGroupInfo(const pinocchio::Model& model) {
+  std::unordered_map<std::string, JointGroupInfo> joint_group_map;
+
   std::vector<size_t> all_joint_indices(model.njoints - 1);
   std::iota(all_joint_indices.begin(), all_joint_indices.end(), 0);
 

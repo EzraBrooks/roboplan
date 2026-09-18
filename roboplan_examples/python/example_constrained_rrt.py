@@ -20,7 +20,12 @@ except ModuleNotFoundError:
 
 import itertools
 
-from roboplan.core import CartesianConfiguration, JointConfiguration, Scene
+from roboplan.core import (
+    CartesianConfiguration,
+    JointConfiguration,
+    Scene,
+    UrdfSceneDescription,
+)
 from roboplan.example_models import get_package_share_dir
 from roboplan.rrt import (
     RRT,
@@ -250,8 +255,7 @@ def main(
     package_paths = [get_package_share_dir()]
     scene = Scene(
         "constrained_rrt_scene",
-        urdf=urdf_xml,
-        srdf=srdf_xml,
+        UrdfSceneDescription(urdf_xml, srdf_xml),
         package_paths=package_paths,
         yaml_config_path=model_data.yaml_config_path,
     )

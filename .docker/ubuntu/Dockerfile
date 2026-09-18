@@ -23,7 +23,9 @@ RUN pip3 install \
     pynput \
     tyro \
     "viser>=1.0.29" \
-    xacro
+    xacro \
+    mujoco \
+    robot_descriptions
 
 # Find the location of the relevant pip installed packages and ensure they are available to
 # cmake and LD. This will cause build warnings with system installed packages.
