@@ -49,9 +49,10 @@ const std::string kUrdfAccelOnly = R"(
 </robot>
 )";
 
-// No extended attributes — both should stay unlimited.
+// No extended attributes — both should stay unlimited. Deliberately left at URDF 1.0 so this case
+// parses on every urdfdom, including the older ones that reject a 1.2 version outright.
 const std::string kUrdfNoExtendedLimits = R"(
-<robot name="robot" version="1.2">
+<robot name="robot">
   <link name="base_link"/>
   <link name="link1"/>
   <joint name="joint1" type="revolute">
@@ -114,10 +115,33 @@ const std::string kSrdfWithMimic = R"(
 
 namespace roboplan {
 
+// Only urdfdom 3.0.0 and newer accept a URDF 1.2 document and parse its `acceleration` / `jerk`
+// attributes. The older releases shipped by ROS 2 Jazzy and Kilted reject any version above 1.0
+// outright, so the 1.2 fixtures below cannot even be parsed there. Probe the capability once
+// instead of assuming it.
+bool urdfExtendedLimitsSupported() {
+  static const bool supported = [] {
+    try {
+      const Scene probe("probe",
+                        UrdfSceneDescription{.urdf_xml = kUrdfAccelOnly, .srdf_xml = kSrdf});
+      return probe.getJointInfo("joint1").value().limits.max_acceleration[0] != kUnlimited;
+    } catch (const std::exception&) {
+      return false;
+    }
+  }();
+  return supported;
+}
+
+#define SKIP_IF_NO_URDF_EXTENDED_LIMITS()                                                          \
+  if (!urdfExtendedLimitsSupported()) {                                                            \
+    GTEST_SKIP() << "urdfdom does not support URDF 1.2 extended joint limits.";                    \
+  }
+
 // ──────────────────────────────────────────────────────────────
 // All extended limits explicitly set
 // ──────────────────────────────────────────────────────────────
 TEST(UrdfExtendedLimits, AllLimitsSet) {
+  SKIP_IF_NO_URDF_EXTENDED_LIMITS();
   Scene scene("test", UrdfSceneDescription{.urdf_xml = kUrdfAllLimits, .srdf_xml = kSrdf});
 
   const auto info = scene.getJointInfo("joint1").value();
@@ -129,6 +153,7 @@ TEST(UrdfExtendedLimits, AllLimitsSet) {
 // Only acceleration set; jerk should stay unlimited
 // ──────────────────────────────────────────────────────────────
 TEST(UrdfExtendedLimits, AccelerationOnlyJerkUnlimited) {
+  SKIP_IF_NO_URDF_EXTENDED_LIMITS();
   Scene scene("test", UrdfSceneDescription{.urdf_xml = kUrdfAccelOnly, .srdf_xml = kSrdf});
 
   const auto info = scene.getJointInfo("joint1").value();
@@ -151,6 +176,7 @@ TEST(UrdfExtendedLimits, NoExtendedLimitsStayUnlimited) {
 // YAML overrides URDF values
 // ──────────────────────────────────────────────────────────────
 TEST(UrdfExtendedLimits, YamlOverridesUrdf) {
+  SKIP_IF_NO_URDF_EXTENDED_LIMITS();
   const auto tmp_yaml = std::filesystem::temp_directory_path() / "test_urdf_override.yaml";
   {
     std::ofstream f(tmp_yaml);
@@ -174,6 +200,7 @@ TEST(UrdfExtendedLimits, YamlOverridesUrdf) {
 // Mimic joint inherits scaled limits
 // ──────────────────────────────────────────────────────────────
 TEST(UrdfExtendedLimits, MimicJointInheritsScaledLimits) {
+  SKIP_IF_NO_URDF_EXTENDED_LIMITS();
   Scene scene("test", UrdfSceneDescription{.urdf_xml = kUrdfWithMimic, .srdf_xml = kSrdfWithMimic});
 
   const auto joint1_info = scene.getJointInfo("joint1").value();
