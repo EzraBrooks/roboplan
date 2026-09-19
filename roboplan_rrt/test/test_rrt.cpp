@@ -5,6 +5,7 @@
 #include <limits>
 #include <memory>
 #include <numbers>
+#include <stdexcept>
 #include <thread>
 #include <vector>
 
@@ -25,8 +26,11 @@ protected:
     const auto srdf_path = model_prefix / "ur_robot_model" / "ur5_gripper.srdf";
     const std::vector<std::filesystem::path> package_paths = {
         example_models::get_package_share_dir()};
-    scene = std::make_shared<Scene>("test_scene", loadUrdfSceneDescription(urdf_path, srdf_path),
-                                    package_paths);
+    const auto description = loadUrdfSceneDescription(urdf_path, package_paths);
+    scene = std::make_shared<Scene>("test_scene", description);
+    if (const auto imported = scene->importSrdf(loadTextFile(srdf_path)); !imported) {
+      throw std::runtime_error(imported.error());
+    }
 
     // Pin the scene RNG so the tests below draw the same start/goal pairs on every run. Tests that
     // need a specific problem override this with their own setRngSeed.

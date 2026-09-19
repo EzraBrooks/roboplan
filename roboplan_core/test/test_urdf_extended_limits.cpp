@@ -11,12 +11,6 @@ constexpr double kTolerance = 1e-6;
 constexpr double kUnlimited = std::numeric_limits<double>::max();
 }  // namespace
 
-const std::string kSrdf = R"(
-<robot name="robot">
-  <disable_collisions link1="base_link" link2="link1" reason="Adjacent"/>
-</robot>
-)";
-
 // All three extended limit attributes explicitly set.
 const std::string kUrdfAllLimits = R"(
 <robot name="robot" version="1.2">
@@ -106,13 +100,6 @@ const std::string kUrdfWithMimic = R"(
 </robot>
 )";
 
-const std::string kSrdfWithMimic = R"(
-<robot name="robot">
-  <disable_collisions link1="base_link" link2="link1" reason="Adjacent"/>
-  <disable_collisions link1="link1" link2="link2" reason="Adjacent"/>
-</robot>
-)";
-
 namespace roboplan {
 
 // Only urdfdom 3.0.0 and newer accept a URDF 1.2 document and parse its `acceleration` / `jerk`
@@ -122,8 +109,7 @@ namespace roboplan {
 bool urdfExtendedLimitsSupported() {
   static const bool supported = [] {
     try {
-      const Scene probe("probe",
-                        UrdfSceneDescription{.urdf_xml = kUrdfAccelOnly, .srdf_xml = kSrdf});
+      const Scene probe("probe", loadUrdfSceneDescriptionFromXml(kUrdfAccelOnly));
       return probe.getJointInfo("joint1").value().limits.max_acceleration[0] != kUnlimited;
     } catch (const std::exception&) {
       return false;
@@ -142,7 +128,7 @@ bool urdfExtendedLimitsSupported() {
 // ──────────────────────────────────────────────────────────────
 TEST(UrdfExtendedLimits, AllLimitsSet) {
   SKIP_IF_NO_URDF_EXTENDED_LIMITS();
-  Scene scene("test", UrdfSceneDescription{.urdf_xml = kUrdfAllLimits, .srdf_xml = kSrdf});
+  Scene scene("test", loadUrdfSceneDescriptionFromXml(kUrdfAllLimits));
 
   const auto info = scene.getJointInfo("joint1").value();
   EXPECT_NEAR(info.limits.max_acceleration[0], 5.0, kTolerance);
@@ -154,7 +140,7 @@ TEST(UrdfExtendedLimits, AllLimitsSet) {
 // ──────────────────────────────────────────────────────────────
 TEST(UrdfExtendedLimits, AccelerationOnlyJerkUnlimited) {
   SKIP_IF_NO_URDF_EXTENDED_LIMITS();
-  Scene scene("test", UrdfSceneDescription{.urdf_xml = kUrdfAccelOnly, .srdf_xml = kSrdf});
+  Scene scene("test", loadUrdfSceneDescriptionFromXml(kUrdfAccelOnly));
 
   const auto info = scene.getJointInfo("joint1").value();
   EXPECT_NEAR(info.limits.max_acceleration[0], 5.0, kTolerance);
@@ -165,7 +151,7 @@ TEST(UrdfExtendedLimits, AccelerationOnlyJerkUnlimited) {
 // No extended attributes — both should stay unlimited
 // ──────────────────────────────────────────────────────────────
 TEST(UrdfExtendedLimits, NoExtendedLimitsStayUnlimited) {
-  Scene scene("test", UrdfSceneDescription{.urdf_xml = kUrdfNoExtendedLimits, .srdf_xml = kSrdf});
+  Scene scene("test", loadUrdfSceneDescriptionFromXml(kUrdfNoExtendedLimits));
 
   const auto info = scene.getJointInfo("joint1").value();
   EXPECT_DOUBLE_EQ(info.limits.max_acceleration[0], kUnlimited);
@@ -186,8 +172,7 @@ TEST(UrdfExtendedLimits, YamlOverridesUrdf) {
       << "    max_jerk: [100.0]\n";
   }
 
-  Scene scene("test", UrdfSceneDescription{.urdf_xml = kUrdfForYamlOverride, .srdf_xml = kSrdf}, {},
-              tmp_yaml);
+  Scene scene("test", loadUrdfSceneDescriptionFromXml(kUrdfForYamlOverride), tmp_yaml);
 
   const auto info = scene.getJointInfo("joint1").value();
   EXPECT_NEAR(info.limits.max_acceleration[0], 10.0, kTolerance);
@@ -201,7 +186,7 @@ TEST(UrdfExtendedLimits, YamlOverridesUrdf) {
 // ──────────────────────────────────────────────────────────────
 TEST(UrdfExtendedLimits, MimicJointInheritsScaledLimits) {
   SKIP_IF_NO_URDF_EXTENDED_LIMITS();
-  Scene scene("test", UrdfSceneDescription{.urdf_xml = kUrdfWithMimic, .srdf_xml = kSrdfWithMimic});
+  Scene scene("test", loadUrdfSceneDescriptionFromXml(kUrdfWithMimic));
 
   const auto joint1_info = scene.getJointInfo("joint1").value();
   EXPECT_NEAR(joint1_info.limits.max_acceleration[0], 6.0, kTolerance);

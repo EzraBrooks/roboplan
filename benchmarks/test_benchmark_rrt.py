@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import xacro
 
-from roboplan.core import JointConfiguration, Scene, UrdfSceneDescription
+from roboplan.core import JointConfiguration, Scene, loadUrdfSceneDescriptionFromXml
 from roboplan.example_models import get_package_share_dir
 from roboplan.rrt import RRT, RRTOptions
 
@@ -69,10 +69,10 @@ def create_scene(model_name: str) -> Scene:
 
     scene = Scene(
         f"{model_name}_benchmark_scene",
-        UrdfSceneDescription(urdf_xml, srdf_xml),
-        package_paths=package_paths,
+        loadUrdfSceneDescriptionFromXml(urdf_xml, package_paths),
         yaml_config_path=model_data.yaml_config_path,
     )
+    scene.importSrdf(srdf_xml)
     return scene
 
 

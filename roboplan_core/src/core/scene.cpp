@@ -1,12 +1,17 @@
 #include <algorithm>
 #include <cmath>
+#include <fstream>
 #include <limits>
 #include <numbers>
 #include <numeric>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
+#include <tinyxml2.h>
 #include <tl/expected.hpp>
 
 #include <pinocchio/algorithm/jacobian.hpp>
@@ -34,9 +39,7 @@ constexpr double kDefaultPlanarJointTranslationLimit = 2.0;
 
 namespace roboplan {
 
-namespace {
-
-std::string readFile(const std::filesystem::path& path) {
+std::string loadTextFile(const std::filesystem::path& path) {
   if (!std::filesystem::exists(path)) {
     throw std::runtime_error("File not found: " + path.string());
   }
@@ -47,16 +50,28 @@ std::string readFile(const std::filesystem::path& path) {
   return content;
 }
 
-}  // namespace
+PinocchioSceneDescription
+loadUrdfSceneDescriptionFromXml(const std::string& urdf_xml,
+                                const std::vector<std::filesystem::path>& package_paths) {
+  PinocchioSceneDescription description;
+  pinocchio::urdf::buildModelFromXML(urdf_xml, description.model, /*verbose*/ false,
+                                     /*mimic*/ true);
 
-UrdfSceneDescription
-loadUrdfSceneDescription(const std::filesystem::path& urdf_path,
-                         const std::optional<std::filesystem::path>& srdf_path) {
-  UrdfSceneDescription description{.urdf_xml = readFile(urdf_path)};
-  if (srdf_path.has_value()) {
-    description.srdf_xml = readFile(*srdf_path);
+  std::vector<std::string> package_paths_str;
+  package_paths_str.reserve(package_paths.size());
+  for (const auto& path : package_paths) {
+    package_paths_str.push_back(path.string());
   }
+  pinocchio::urdf::buildGeom(description.model, std::istringstream(urdf_xml), pinocchio::COLLISION,
+                             description.collision_model, package_paths_str);
+  description.collision_model.addAllCollisionPairs();
   return description;
+}
+
+PinocchioSceneDescription
+loadUrdfSceneDescription(const std::filesystem::path& urdf_path,
+                         const std::vector<std::filesystem::path>& package_paths) {
+  return loadUrdfSceneDescriptionFromXml(loadTextFile(urdf_path), package_paths);
 }
 
 PinocchioSceneDescription loadMjcfModel(const std::filesystem::path& mjcf_path) {
@@ -68,41 +83,9 @@ PinocchioSceneDescription loadMjcfModel(const std::filesystem::path& mjcf_path) 
   return description;
 }
 
-Scene::Scene(const std::string& name, const UrdfSceneDescription& description,
-             const std::vector<std::filesystem::path>& package_paths,
-             const std::filesystem::path& yaml_config_path)
-    : name_{name} {
-  pinocchio::urdf::buildModelFromXML(description.urdf_xml, model_, /*verbose*/ false,
-                                     /*mimic*/ true);
-
-  std::vector<std::string> package_paths_str;
-  package_paths_str.reserve(package_paths.size());
-  for (const auto& path : package_paths) {
-    package_paths_str.push_back(path.string());
-  }
-  pinocchio::urdf::buildGeom(model_, std::istringstream(description.urdf_xml), pinocchio::COLLISION,
-                             collision_model_, package_paths_str);
-  collision_model_.addAllCollisionPairs();
-
-  // Without an SRDF, keep all collision pairs and use only the default whole-model joint group.
-  if (description.srdf_xml.has_value()) {
-    pinocchio::srdf::removeCollisionPairsFromXML(model_, collision_model_, *description.srdf_xml);
-  }
-  const auto joint_group_info_map = description.srdf_xml.has_value()
-                                        ? createJointGroupInfo(model_, *description.srdf_xml)
-                                        : createDefaultJointGroupInfo(model_);
-  initialize(yaml_config_path, joint_group_info_map);
-}
-
 Scene::Scene(const std::string& name, const PinocchioSceneDescription& description,
              const std::filesystem::path& yaml_config_path)
     : name_{name}, model_{description.model}, collision_model_{description.collision_model} {
-  initialize(yaml_config_path, createDefaultJointGroupInfo(model_));
-}
-
-void Scene::initialize(
-    const std::filesystem::path& yaml_config_path,
-    const std::unordered_map<std::string, JointGroupInfo>& joint_group_info_map) {
   YAML::Node yaml_config;
   if (!yaml_config_path.empty() && !std::filesystem::is_directory(yaml_config_path)) {
     yaml_config = YAML::LoadFile(yaml_config_path.string());
@@ -217,7 +200,7 @@ void Scene::initialize(
 
   // Create auxiliary model info.
   frame_map_ = createFrameMap(model_);
-  joint_group_info_map_ = joint_group_info_map;
+  joint_group_info_map_ = createDefaultJointGroupInfo(model_);
 
   model_data_ = pinocchio::Data(model_);
   collision_model_data_ = pinocchio::GeometryData(collision_model_);
@@ -686,6 +669,142 @@ tl::expected<JointGroupInfo, std::string> Scene::getJointGroupInfo(const std::st
   return it->second;
 }
 
+tl::expected<void, std::string> Scene::importSrdf(const std::string& srdf_xml) {
+  tinyxml2::XMLDocument doc;
+  if (doc.Parse(srdf_xml.c_str()) != tinyxml2::XML_SUCCESS) {
+    return tl::make_unexpected("Failed to parse SRDF XML.");
+  }
+  const tinyxml2::XMLElement* robot = doc.FirstChildElement("robot");
+  if (robot == nullptr) {
+    return tl::make_unexpected("No <robot> tag found in the SRDF file!");
+  }
+
+  for (const tinyxml2::XMLElement* group = robot->FirstChildElement("group"); group != nullptr;
+       group = group->NextSiblingElement("group")) {
+    const char* name = nullptr;
+    if (group->QueryStringAttribute("name", &name) != tinyxml2::XML_SUCCESS) {
+      return tl::make_unexpected("Found an invalid group with no name in the SRDF!");
+    }
+    if (name[0] == '\0') {
+      continue;
+    }
+
+    std::vector<std::string> joint_names;
+    std::vector<std::string> extra_link_names;
+    for (const tinyxml2::XMLElement* child = group->FirstChildElement(); child != nullptr;
+         child = child->NextSiblingElement()) {
+      const std::string elem_name = child->Name();
+      if (elem_name == "link") {
+        const char* link_name = nullptr;
+        if (child->QueryStringAttribute("name", &link_name) != tinyxml2::XML_SUCCESS) {
+          return tl::make_unexpected("Group '" + std::string(name) +
+                                     "' specifies a link with no name in the SRDF!");
+        }
+        extra_link_names.emplace_back(link_name);
+      } else if (elem_name == "joint") {
+        const char* joint_name = nullptr;
+        if (child->QueryStringAttribute("name", &joint_name) != tinyxml2::XML_SUCCESS) {
+          return tl::make_unexpected("Group '" + std::string(name) +
+                                     "' specifies a joint with no name in the SRDF!");
+        }
+        if (model_.getJointId(joint_name) >= static_cast<size_t>(model_.njoints)) {
+          continue;
+        }
+        joint_names.emplace_back(joint_name);
+      } else if (elem_name == "chain") {
+        const char* base_link = nullptr;
+        if (child->QueryStringAttribute("base_link", &base_link) != tinyxml2::XML_SUCCESS) {
+          return tl::make_unexpected("Group '" + std::string(name) +
+                                     "' chain specifies no 'base_link' attribute in the SRDF!");
+        }
+        const char* tip_link = nullptr;
+        if (child->QueryStringAttribute("tip_link", &tip_link) != tinyxml2::XML_SUCCESS) {
+          return tl::make_unexpected("Group '" + std::string(name) +
+                                     "' chain specifies no 'tip_link' attribute in the SRDF!");
+        }
+        const auto maybe_chain_joints = jointNamesFromChain(model_, base_link, tip_link);
+        if (!maybe_chain_joints) {
+          return tl::make_unexpected("Group '" + std::string(name) +
+                                     "': " + maybe_chain_joints.error());
+        }
+        joint_names.insert(joint_names.end(), maybe_chain_joints->begin(),
+                           maybe_chain_joints->end());
+      } else if (elem_name == "group") {
+        const char* group_name = nullptr;
+        if (child->QueryStringAttribute("name", &group_name) != tinyxml2::XML_SUCCESS) {
+          return tl::make_unexpected("Group '" + std::string(name) +
+                                     "' specifies a subgroup with no name in the SRDF!");
+        }
+        const auto maybe_group = getJointGroupInfo(group_name);
+        if (!maybe_group) {
+          return tl::make_unexpected("Group '" + std::string(name) + "' specifies a subgroup '" +
+                                     group_name + "' which has not yet been parsed in the SRDF.");
+        }
+        joint_names.insert(joint_names.end(), maybe_group->joint_names.begin(),
+                           maybe_group->joint_names.end());
+        extra_link_names.insert(extra_link_names.end(), maybe_group->link_names.begin(),
+                                maybe_group->link_names.end());
+      }
+    }
+
+    const auto added = addGroup(name, joint_names, extra_link_names);
+    if (!added) {
+      return tl::make_unexpected("Group '" + std::string(name) + "': " + added.error());
+    }
+  }
+
+  try {
+    pinocchio::srdf::removeCollisionPairsFromXML(model_, collision_model_, srdf_xml);
+  } catch (const std::exception& e) {
+    return tl::make_unexpected(std::string(e.what()));
+  }
+
+  collision_model_data_ = pinocchio::GeometryData(collision_model_);
+  rebuildBroadphaseManager();
+  return {};
+}
+
+tl::expected<void, std::string> Scene::addGroupFromChain(const std::string& name,
+                                                         const std::string& base_link,
+                                                         const std::string& tip_link) {
+  const auto maybe_joints = jointNamesFromChain(model_, base_link, tip_link);
+  if (!maybe_joints) {
+    return tl::make_unexpected(maybe_joints.error());
+  }
+  return addGroup(name, maybe_joints.value());
+}
+
+tl::expected<void, std::string>
+Scene::addGroupFromGroups(const std::string& name, const std::vector<std::string>& group_names) {
+  std::vector<std::string> joint_names;
+  std::vector<std::string> extra_link_names;
+  for (const auto& group_name : group_names) {
+    const auto maybe_group = getJointGroupInfo(group_name);
+    if (!maybe_group) {
+      return tl::make_unexpected(maybe_group.error());
+    }
+    joint_names.insert(joint_names.end(), maybe_group->joint_names.begin(),
+                       maybe_group->joint_names.end());
+    extra_link_names.insert(extra_link_names.end(), maybe_group->link_names.begin(),
+                            maybe_group->link_names.end());
+  }
+  return addGroup(name, joint_names, extra_link_names);
+}
+
+tl::expected<void, std::string> Scene::addGroup(const std::string& name,
+                                                const std::vector<std::string>& joint_names,
+                                                const std::vector<std::string>& extra_link_names) {
+  if (name.empty()) {
+    return tl::make_unexpected("Cannot replace the default whole-model group.");
+  }
+  const auto maybe_info = makeJointGroupInfo(model_, joint_names, extra_link_names);
+  if (!maybe_info) {
+    return tl::make_unexpected(maybe_info.error());
+  }
+  joint_group_info_map_[name] = maybe_info.value();
+  return {};
+}
+
 Eigen::VectorXi Scene::getJointPositionIndices(const std::vector<std::string>& joint_names) const {
   std::vector<int> q_indices;
   for (const auto& joint_name : joint_names) {
@@ -1054,28 +1173,32 @@ Scene::getCollisionGeometryIds(const std::string& body) {
 
 tl::expected<void, std::string> Scene::setCollisions(const std::string& body1,
                                                      const std::string& body2, const bool enable) {
+  return setCollisions({{body1, body2}}, enable);
+}
 
-  const auto maybe_body1_collision_geom_ids = getCollisionGeometryIds(body1);
-  if (!maybe_body1_collision_geom_ids) {
-    return tl::make_unexpected("Could not set collisions: " +
-                               maybe_body1_collision_geom_ids.error());
-  }
-  const auto& body1_collision_geom_ids = maybe_body1_collision_geom_ids.value();
+tl::expected<void, std::string>
+Scene::setCollisions(const std::vector<std::pair<std::string, std::string>>& pairs,
+                     const bool enable) {
+  for (const auto& [body1, body2] : pairs) {
+    const auto maybe_body1_collision_geom_ids = getCollisionGeometryIds(body1);
+    if (!maybe_body1_collision_geom_ids) {
+      return tl::make_unexpected("Could not set collisions: " +
+                                 maybe_body1_collision_geom_ids.error());
+    }
+    const auto maybe_body2_collision_geom_ids = getCollisionGeometryIds(body2);
+    if (!maybe_body2_collision_geom_ids) {
+      return tl::make_unexpected("Could not set collisions: " +
+                                 maybe_body2_collision_geom_ids.error());
+    }
 
-  const auto maybe_body2_collision_geom_ids = getCollisionGeometryIds(body2);
-  if (!maybe_body2_collision_geom_ids) {
-    return tl::make_unexpected("Could not set collisions: " +
-                               maybe_body2_collision_geom_ids.error());
-  }
-  const auto& body2_collision_geom_ids = maybe_body2_collision_geom_ids.value();
-
-  for (const auto& body1_id : body1_collision_geom_ids) {
-    for (const auto& body2_id : body2_collision_geom_ids) {
-      const auto pair = pinocchio::CollisionPair(body1_id, body2_id);
-      if (enable) {
-        collision_model_.addCollisionPair(pair);
-      } else {
-        collision_model_.removeCollisionPair(pair);
+    for (const auto& body1_id : maybe_body1_collision_geom_ids.value()) {
+      for (const auto& body2_id : maybe_body2_collision_geom_ids.value()) {
+        const auto pair = pinocchio::CollisionPair(body1_id, body2_id);
+        if (enable) {
+          collision_model_.addCollisionPair(pair);
+        } else {
+          collision_model_.removeCollisionPair(pair);
+        }
       }
     }
   }
@@ -1092,18 +1215,16 @@ tl::expected<void, std::string> Scene::allowAdjacentLinkCollisions() {
     }
   }
 
+  std::vector<std::pair<std::string, std::string>> pairs;
   for (int jid = 1; jid < model_.njoints; ++jid) {
     const auto parent_jid = model_.parents.at(jid);
     for (const auto& child_link : links_by_joint.at(jid)) {
       for (const auto& parent_link : links_by_joint.at(parent_jid)) {
-        const auto result = setCollisions(child_link, parent_link, false);
-        if (!result) {
-          return result;
-        }
+        pairs.emplace_back(child_link, parent_link);
       }
     }
   }
-  return {};
+  return setCollisions(pairs, false);
 }
 
 std::ostream& operator<<(std::ostream& os, const Scene& scene) {

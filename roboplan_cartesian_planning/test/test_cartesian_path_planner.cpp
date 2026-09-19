@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <stdexcept>
 
 #include <memory>
 #include <vector>
@@ -33,8 +34,11 @@ protected:
     const auto yaml_config_path = model_prefix / "ur_robot_model" / "ur5_config.yaml";
     const std::vector<std::filesystem::path> package_paths = {
         example_models::get_package_share_dir()};
-    scene_ = std::make_shared<Scene>("test_scene", loadUrdfSceneDescription(urdf_path, srdf_path),
-                                     package_paths, yaml_config_path);
+    const auto description = loadUrdfSceneDescription(urdf_path, package_paths);
+    scene_ = std::make_shared<Scene>("test_scene", description, yaml_config_path);
+    if (const auto imported = scene_->importSrdf(loadTextFile(srdf_path)); !imported) {
+      throw std::runtime_error(imported.error());
+    }
   }
 
   /// @brief Builds a single-frame straight-line CartesianPath of `num_waypoints` points

@@ -16,7 +16,7 @@ from roboplan.core import (
     PathShortcutter,
     PathShortcuttingOptions,
     Scene,
-    UrdfSceneDescription,
+    loadUrdfSceneDescriptionFromXml,
 )
 from roboplan.example_models import get_package_share_dir
 from roboplan.rrt import RRT, RRTOptions, visualizeTree
@@ -88,10 +88,10 @@ def main(
 
     scene = Scene(
         "test_scene",
-        UrdfSceneDescription(urdf_xml, srdf_xml),
-        package_paths=package_paths,
+        loadUrdfSceneDescriptionFromXml(urdf_xml, package_paths),
         yaml_config_path=model_data.yaml_config_path,
     )
+    scene.importSrdf(srdf_xml)
     group_info = scene.getJointGroupInfo(model_data.default_joint_group)
     q_indices = group_info.q_indices
 

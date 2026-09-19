@@ -43,7 +43,7 @@ from roboplan.core import (
     RobotBodyFilterMethod,
     RobotBodyFilterOptions,
     Scene,
-    UrdfSceneDescription,
+    loadUrdfSceneDescriptionFromXml,
 )
 from roboplan.example_models import get_package_share_dir
 from roboplan.rrt import RRT, RRTOptions
@@ -86,10 +86,10 @@ def main(
     srdf_xml = xacro.process_file(model_data.srdf_path).toxml()
     scene = Scene(
         "octree_filtering_scene",
-        UrdfSceneDescription(urdf_xml, srdf_xml),
-        package_paths=package_paths,
+        loadUrdfSceneDescriptionFromXml(urdf_xml, package_paths),
         yaml_config_path=model_data.yaml_config_path,
     )
+    scene.importSrdf(srdf_xml)
     scene.setRngSeed(rng_seed)
     group_name = model_data.default_joint_group
     group_info = scene.getJointGroupInfo(group_name)

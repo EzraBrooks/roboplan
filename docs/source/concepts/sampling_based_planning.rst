@@ -317,11 +317,12 @@ Usage Example
 
 .. code-block:: python
 
-   from roboplan.core import JointConfiguration, Scene
+   from roboplan.core import JointConfiguration, Scene, loadUrdfSceneDescriptionFromXml
    from roboplan.rrt import RRTOptions, RRT
 
    # Set up the scene from a robot description.
-   scene = Scene("robot", urdf=urdf_xml, srdf=srdf_xml, package_paths=package_paths)
+   scene = Scene("robot", loadUrdfSceneDescriptionFromXml(urdf_xml, package_paths))
+   scene.importSrdf(srdf_xml)
 
    # Configure and construct the planner.
    options = RRTOptions(

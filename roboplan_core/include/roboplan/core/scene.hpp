@@ -7,6 +7,8 @@
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 #include <pinocchio/algorithm/frames.hpp>
 #include <pinocchio/algorithm/geometry.hpp>
@@ -32,22 +34,28 @@ namespace coal = hpp::fcl;
 
 namespace roboplan {
 
-/// @brief URDF robot description and optional SRDF planning configuration documents.
-struct UrdfSceneDescription {
-  std::string urdf_xml;
-  std::optional<std::string> srdf_xml;
-};
-
-/// @brief Loads a URDF robot description and optional SRDF planning configuration from disk.
-UrdfSceneDescription
-loadUrdfSceneDescription(const std::filesystem::path& urdf_path,
-                         const std::optional<std::filesystem::path>& srdf_path = std::nullopt);
-
 /// @brief Pinocchio model and collision geometry used to construct a Scene.
 struct PinocchioSceneDescription {
   pinocchio::Model model;
   pinocchio::GeometryModel collision_model;
 };
+
+/// @brief Reads a text file from disk.
+std::string loadTextFile(const std::filesystem::path& path);
+
+/// @brief Builds a Pinocchio model and collision geometry from URDF XML.
+/// @param urdf_xml The URDF XML contents.
+/// @param package_paths Directories used to resolve `package://` mesh paths.
+PinocchioSceneDescription
+loadUrdfSceneDescriptionFromXml(const std::string& urdf_xml,
+                                const std::vector<std::filesystem::path>& package_paths = {});
+
+/// @brief Loads a URDF from disk and builds a Pinocchio model and collision geometry.
+/// @param urdf_path Path to the URDF file.
+/// @param package_paths Directories used to resolve `package://` mesh paths.
+PinocchioSceneDescription
+loadUrdfSceneDescription(const std::filesystem::path& urdf_path,
+                         const std::vector<std::filesystem::path>& package_paths = {});
 
 /// @brief Loads an MJCF model and its collision geometry from disk.
 PinocchioSceneDescription loadMjcfModel(const std::filesystem::path& mjcf_path);
@@ -57,32 +65,28 @@ PinocchioSceneDescription loadMjcfModel(const std::filesystem::path& mjcf_path);
 /// @par Thread safety
 /// A Scene splits into three kinds of state, and only the first is safe to share:
 ///
-/// 1. The robot description (`getModel()`, the collision geometry, the frame / joint / group
+/// 1. The robot kinematics and geometry (`getModel()`, the collision geometry, the frame / joint
 ///    lookups) is immutable once the constructor returns. Every query that reads only these --
 ///    `configurationDistance`, `interpolate`, `integrate`, `difference`, `isValidConfiguration`,
 ///    `clampToValidConfiguration`, `toFullJointPositions`, `getFrameId`, `getJointInfo`,
-///    `getJointGroupInfo`, and the limit getters -- is safe to call concurrently on one Scene.
+///    and the limit getters -- is safe to call concurrently on one Scene.
 ///
 /// 2. Per-query scratch (`model_data_`, `collision_model_data_`, `broadphase_manager_`). The
 ///    methods that write it are marked `const` for convenience, but they are *not* safe to call
 ///    concurrently. Each thread should own a SceneContext, which holds private copies of that
 ///    scratch over this Scene's immutable description, and call the equivalent methods there.
 ///
-/// 3. Mutable bookkeeping (`setJointPositions`, `setRngSeed`, and the geometry mutators). These
-///    are for single-threaded setup and interactive use. Library code must not write them while
-///    other threads are querying, and must not read `getCurrentJointPositions()` in the middle of
-///    an algorithm.
+/// 3. Mutable bookkeeping (`setJointPositions`, `setRngSeed`, geometry mutators, `importSrdf`,
+///    and the group mutators). These are for single-threaded setup and interactive use. Library
+///    code must not write them while other threads are querying, and must not read
+///    `getCurrentJointPositions()` in the middle of an algorithm.
 ///
 /// For items 2. and 3., if you need thread safety, we recommend using a SceneContext.
 class Scene {
 public:
-  /// @brief Builds a scene from typed URDF and SRDF documents.
-  Scene(const std::string& name, const UrdfSceneDescription& description,
-        const std::vector<std::filesystem::path>& package_paths =
-            std::vector<std::filesystem::path>(),
-        const std::filesystem::path& yaml_config_path = std::filesystem::path());
-
-  /// @brief Builds a scene from a prebuilt Pinocchio model and collision geometry.
+  /// @brief Builds a scene from a Pinocchio model and collision geometry.
+  /// @details Planner configuration such as joint groups and disabled collision pairs is applied
+  /// afterwards with `importSrdf` or the `addGroup*` methods.
   Scene(const std::string& name, const PinocchioSceneDescription& description,
         const std::filesystem::path& yaml_config_path = std::filesystem::path());
 
@@ -359,6 +363,39 @@ public:
   /// @return The joint group information if successful, else a string describing the error.
   tl::expected<JointGroupInfo, std::string> getJointGroupInfo(const std::string& name) const;
 
+  /// @brief Applies groups and disabled collision pairs from an SRDF document.
+  /// @details Groups with the same name as an existing non-default group overwrite it. The
+  /// default whole-model group is left unchanged. Call this after construction; the constructor
+  /// does not apply SRDF.
+  /// @param srdf_xml The SRDF XML contents.
+  /// @return Void if successful, else a string describing the error.
+  tl::expected<void, std::string> importSrdf(const std::string& srdf_xml);
+
+  /// @brief Adds a joint group defined by a kinematic chain.
+  /// @param name The name of the group to add. Overwrites an existing group of the same name.
+  /// @param base_link The name of the chain's base link.
+  /// @param tip_link The name of the chain's tip link.
+  /// @return Void if successful, else a string describing the error.
+  tl::expected<void, std::string> addGroupFromChain(const std::string& name,
+                                                    const std::string& base_link,
+                                                    const std::string& tip_link);
+
+  /// @brief Adds a joint group by concatenating existing groups.
+  /// @param name The name of the group to add. Overwrites an existing group of the same name.
+  /// @param group_names The existing groups to concatenate, in order.
+  /// @return Void if successful, else a string describing the error.
+  tl::expected<void, std::string> addGroupFromGroups(const std::string& name,
+                                                     const std::vector<std::string>& group_names);
+
+  /// @brief Adds a joint group from an explicit list of joints.
+  /// @param name The name of the group to add. Overwrites an existing group of the same name.
+  /// @param joint_names The joints that make up the group, in order.
+  /// @param extra_link_names Additional link names to include besides those driven by the joints.
+  /// @return Void if successful, else a string describing the error.
+  tl::expected<void, std::string> addGroup(const std::string& name,
+                                           const std::vector<std::string>& joint_names,
+                                           const std::vector<std::string>& extra_link_names = {});
+
   /// @brief Get the current Pinocchio configuration vector (model.nq).
   /// @details This is the internal planning layout (e.g. continuous joints as [cos, sin]).
   /// Joint count may differ from getJointNames().size().
@@ -516,6 +553,13 @@ public:
   tl::expected<void, std::string> setCollisions(const std::string& body1, const std::string& body2,
                                                 const bool enable);
 
+  /// @brief Sets the allowable collisions for many body pairs, rebuilding collision data once.
+  /// @param pairs Body name pairs. Names can be model frame names or collision geometry names.
+  /// @param enable If true, enables each pair; if false, disables each pair.
+  /// @return Void if successful, else a string describing the error.
+  tl::expected<void, std::string>
+  setCollisions(const std::vector<std::pair<std::string, std::string>>& pairs, const bool enable);
+
   /// @brief Allows collisions between every parent-child link pair in the kinematic tree.
   /// @details Almost all robots need this since adjacent link geometries may overlap across joint
   /// boundaries and cause collision checking to fail on valid configurations. Consider calling this
@@ -527,9 +571,6 @@ public:
   friend std::ostream& operator<<(std::ostream& os, const Scene& scene);
 
 private:
-  void initialize(const std::filesystem::path& yaml_config_path,
-                  const std::unordered_map<std::string, JointGroupInfo>& joint_group_info_map);
-
   /// @brief The name of the scene.
   std::string name_;
 

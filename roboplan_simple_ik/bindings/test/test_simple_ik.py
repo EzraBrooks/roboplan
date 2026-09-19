@@ -31,9 +31,10 @@ def test_scene() -> Scene:
     srdf_path = roboplan_models_dir / "ur_robot_model" / "ur5_gripper.srdf"
     package_paths = [get_package_share_dir()]
 
-    return Scene(
-        "test_scene", loadUrdfSceneDescription(urdf_path, srdf_path), package_paths
-    )
+    description = loadUrdfSceneDescription(urdf_path, package_paths)
+    scene = Scene("test_scene", description)
+    scene.importSrdf(srdf_path.read_text())
+    return scene
 
 
 def reachable_goal(scene: Scene) -> CartesianConfiguration:

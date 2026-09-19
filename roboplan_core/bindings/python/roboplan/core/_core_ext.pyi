@@ -395,39 +395,20 @@ class OcTree:
 
     def __init__(self, boxes: Sequence[Annotated[NDArray[numpy.float64], dict(shape=(6), order='C')]], resolution: float) -> None: ...
 
-class UrdfSceneDescription:
-    """
-    URDF robot description and optional SRDF planning configuration documents.
-    """
-
-    def __init__(self, urdf_xml: str, srdf_xml: str | None = None) -> None: ...
-
-    @property
-    def urdf_xml(self) -> str: ...
-
-    @urdf_xml.setter
-    def urdf_xml(self, arg: str, /) -> None: ...
-
-    @property
-    def srdf_xml(self) -> str | None: ...
-
-    @srdf_xml.setter
-    def srdf_xml(self, arg: str | None) -> None: ...
-
-def loadUrdfSceneDescription(urdf_path: str | os.PathLike, srdf_path: str | os.PathLike | None = None) -> UrdfSceneDescription: ...
-
 class PinocchioSceneDescription:
-    """Prebuilt Pinocchio model and collision geometry."""
+    """Pinocchio model and collision geometry."""
+
+def loadTextFile(path: str | os.PathLike) -> str: ...
+
+def loadUrdfSceneDescriptionFromXml(urdf_xml: str, package_paths: Sequence[str | os.PathLike] = []) -> PinocchioSceneDescription: ...
+
+def loadUrdfSceneDescription(urdf_path: str | os.PathLike, package_paths: Sequence[str | os.PathLike] = []) -> PinocchioSceneDescription: ...
 
 def loadMjcfModel(mjcf_path: str | os.PathLike) -> PinocchioSceneDescription: ...
 
 class Scene:
     """Primary scene representation for planning and control."""
 
-    @overload
-    def __init__(self, name: str, description: UrdfSceneDescription, package_paths: Sequence[str | os.PathLike] = [], yaml_config_path: str | os.PathLike = ...) -> None: ...
-
-    @overload
     def __init__(self, name: str, description: PinocchioSceneDescription, yaml_config_path: str | os.PathLike = ...) -> None: ...
 
     def getName(self) -> str:
@@ -501,6 +482,18 @@ class Scene:
     def getJointGroupInfo(self, name: str) -> JointGroupInfo:
         """Get the joint group information of a scene by its name."""
 
+    def importSrdf(self, srdf_xml: str) -> None:
+        """Applies groups and disabled collision pairs from an SRDF document."""
+
+    def addGroupFromChain(self, name: str, base_link: str, tip_link: str) -> None:
+        """Adds a joint group defined by a kinematic chain."""
+
+    def addGroupFromGroups(self, name: str, group_names: Sequence[str]) -> None:
+        """Adds a joint group by concatenating existing groups."""
+
+    def addGroup(self, name: str, joint_names: Sequence[str], extra_link_names: Sequence[str] = []) -> None:
+        """Adds a joint group from an explicit list of joints."""
+
     def getCurrentJointPositions(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """Get the current Pinocchio configuration vector (model.nq)."""
 
@@ -558,8 +551,15 @@ class Scene:
         Gets the collision geometry IDs belonging to the robot model itself (excluding objects added to the scene).
         """
 
+    @overload
     def setCollisions(self, body1: str, body2: str, enable: bool) -> None:
         """Sets the allowable collisions for a pair of bodies in the model."""
+
+    @overload
+    def setCollisions(self, pairs: Sequence[tuple[str, str]], enable: bool) -> None:
+        """
+        Sets the allowable collisions for many body pairs, rebuilding collision data once.
+        """
 
     def allowAdjacentLinkCollisions(self) -> None:
         """

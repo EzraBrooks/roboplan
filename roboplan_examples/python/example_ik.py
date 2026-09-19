@@ -14,7 +14,7 @@ from roboplan.core import (
     CartesianConfiguration,
     JointConfiguration,
     Scene,
-    UrdfSceneDescription,
+    loadUrdfSceneDescriptionFromXml,
 )
 from roboplan.example_models import get_package_share_dir
 from roboplan.simple_ik import SimpleIk, SimpleIkOptions
@@ -56,10 +56,10 @@ def main(
 
     scene = Scene(
         "test_scene",
-        UrdfSceneDescription(urdf_xml, srdf_xml),
-        package_paths=package_paths,
+        loadUrdfSceneDescriptionFromXml(urdf_xml, package_paths),
         yaml_config_path=model_data.yaml_config_path,
     )
+    scene.importSrdf(srdf_xml)
     q_indices = scene.getJointGroupInfo(model_data.default_joint_group).q_indices
 
     # Create a redundant Pinocchio model just for visualization with mimic joints.

@@ -15,10 +15,10 @@ from roboplan.core import (
     Mesh,
     Scene,
     Sphere,
-    UrdfSceneDescription,
     hasCollisionsAlongPath,
     loadMjcfModel,
     loadUrdfSceneDescription,
+    loadUrdfSceneDescriptionFromXml,
 )
 from roboplan.example_models import get_install_prefix
 
@@ -74,12 +74,14 @@ def test_scene() -> Scene:
     package_paths = [roboplan_examples_dir]
     yaml_config_path = roboplan_models_dir / "ur_robot_model" / "ur5_config.yaml"
 
-    return Scene(
+    description = loadUrdfSceneDescription(urdf_path, package_paths)
+    scene = Scene(
         "test_scene",
-        loadUrdfSceneDescription(urdf_path, srdf_path),
-        package_paths,
+        description,
         yaml_config_path,
     )
+    scene.importSrdf(srdf_path.read_text())
+    return scene
 
 
 def test_scene_properties(test_scene: Scene) -> None:
@@ -291,8 +293,7 @@ def test_allow_adjacent_link_collisions() -> None:
 
     scene = Scene(
         "test_scene",
-        loadUrdfSceneDescription(urdf_path),
-        package_paths,
+        loadUrdfSceneDescription(urdf_path, package_paths),
         yaml_config_path,
     )
 
@@ -394,7 +395,7 @@ def test_mjcf_scene(tmp_path: Path) -> None:
 def test_scene_without_srdf() -> None:
     # Omitting the SRDF should still build a scene, keeping every collision pair and exposing
     # only the default whole-model joint group.
-    scene = Scene("no_srdf_scene", UrdfSceneDescription(URDF))
+    scene = Scene("no_srdf_scene", loadUrdfSceneDescriptionFromXml(URDF))
     assert scene.getJointNames() == ["continuous_joint", "revolute_joint"]
 
     default_group = scene.getJointGroupInfo("")
@@ -409,9 +410,35 @@ def test_scene_without_srdf() -> None:
         scene.getJointGroupInfo("arm")
 
 
+def test_add_group_from_joints_chain_and_groups() -> None:
+    scene = Scene("groups_scene", loadUrdfSceneDescriptionFromXml(URDF))
+    scene.addGroup("arm", ["revolute_joint", "mimic_joint"])
+    assert scene.getJointGroupInfo("arm").joint_names == [
+        "revolute_joint",
+        "mimic_joint",
+    ]
+
+    scene.addGroupFromChain("chain_group", "base_link", "link3")
+    assert scene.getJointGroupInfo("chain_group").joint_names == [
+        "continuous_joint",
+        "revolute_joint",
+        "mimic_joint",
+    ]
+
+    scene.addGroupFromGroups("arm_and_base", ["", "arm"])
+    assert scene.getJointGroupInfo("arm_and_base").joint_names == [
+        "continuous_joint",
+        "revolute_joint",
+        "mimic_joint",
+        "revolute_joint",
+        "mimic_joint",
+    ]
+
+
 def test_mimics() -> None:
     # Native Pinocchio mimics: mimic has no q slot; link3 pose follows revolute via FK.
-    test_scene = Scene("test_scene", UrdfSceneDescription(URDF, SRDF))
+    test_scene = Scene("test_scene", loadUrdfSceneDescriptionFromXml(URDF))
+    test_scene.importSrdf(SRDF)
     assert test_scene.getJointNames() == ["continuous_joint", "revolute_joint"]
     assert test_scene.getJointNamesWithMimics() == [
         "continuous_joint",
