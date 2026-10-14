@@ -3,7 +3,10 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <utility>
+#include <vector>
 
+#include <Eigen/Eigenvalues>
 #include <tl/expected.hpp>
 
 #include <roboplan/core/scene.hpp>
@@ -43,6 +46,8 @@ struct Task {
     jacobian_container = Eigen::MatrixXd::Zero(task_rows, num_vars);
     error_container = Eigen::VectorXd::Zero(task_rows);
     H_dense = Eigen::MatrixXd::Zero(num_vars, num_vars);
+    weighted_jacobian = Eigen::MatrixXd::Zero(task_rows, num_vars);
+    weighted_error = Eigen::VectorXd::Zero(task_rows);
   }
 
   /// @brief Compute the task Jacobian and store in jacobian_container.
@@ -89,11 +94,21 @@ struct Task {
                                   // into the nullspace of higher ones)
   int num_variables = 0;          // Number of optimization variables
 
+  /// @brief Singular values of the weighted Jacobian below this are damped: the corresponding
+  /// Hessian eigenvalues are floored at threshold², so the step gain in a near-singular direction
+  /// never exceeds 1/threshold. Lower priority levels may use those directions, at a cost of
+  /// ‖W J Δq‖²/threshold². 0 disables both.
+  double singularity_threshold = 0.0;
+
   /// @brief Pre-allocated Jacobian container (task_rows × num_variables).
   Eigen::MatrixXd jacobian_container;
 
   /// @brief Pre-allocated error container (task_rows).
   Eigen::VectorXd error_container;
+
+  /// @brief Pre-allocated W·J (task_rows × num_variables) and W·(α·e) (task_rows).
+  Eigen::MatrixXd weighted_jacobian;
+  Eigen::VectorXd weighted_error;
 
   /// @brief Pre-allocated dense Hessian matrix (num_variables × num_variables).
   Eigen::MatrixXd H_dense;
@@ -434,24 +449,30 @@ struct Oink {
   SceneContext& getContext() { return *context_; }
 
 private:
-  /// @brief Compute `task`'s Jacobian and error, and add its contribution to the QP Hessian
-  /// and gradient (projecting through the current `nullspace_projector` for hierarchical
-  /// priorities).
+  /// @brief Compute `task`'s Jacobian and error, and add its contribution to a QP objective.
   /// @param context The context supplying the configuration and the scratch.
   /// @param task The task to add to the QP objective.
+  /// @param H_out Hessian the task's JᵀJ (plus its damping) is added to.
+  /// @param c_out Gradient the task's Jᵀe term is added to.
   /// @return void if successful, else an error message describing the failure.
-  tl::expected<void, std::string> addTaskContribution(const SceneContext& context, Task* task);
-
-  /// @brief Rebuild `nullspace_projector` from the current `jacobian_stack` via a damped
-  /// pseudoinverse, so subsequent priority levels are projected into the nullspace of
-  /// everything stacked so far.
-  /// @param lambda_sq Damping factor for the pseudoinverse.
-  void rebuildNullspaceProjector(double lambda_sq);
+  tl::expected<void, std::string> addTaskContribution(const SceneContext& context, Task* task,
+                                                      Eigen::MatrixXd& H_out,
+                                                      Eigen::VectorXd& c_out);
 
 public:
-  // QP solver (ProxQP dense backend). Reconstructed whenever the constraint row count
-  // changes, since ProxQP fixes the problem dimensions at construction.
-  detail::QpSolverPtr solver;
+  // Per-priority-level state. ProxQP fixes the problem dimensions at construction, so each level
+  // keeps its own solver, rebuilt only when its (variables, rows) change. The scratch holds the
+  // nullspace basis Z entering the level, its QP in z (δq = δq_{k-1} + Z·z) with warm start, the
+  // stacked weighted Jacobian W·J of its tasks, and the δq it produced on the previous solve.
+  // Sizes are stable across solves, so the steady state allocates nothing.
+  struct Level {
+    detail::QpSolverPtr solver;
+    std::pair<int, int> dims{-1, -1};
+    Eigen::MatrixXd basis, H, HZ, A, jacobian, JZ, gram;
+    Eigen::VectorXd c, offset, lower, upper, z, guess, solution;
+    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> eig;
+  };
+  std::vector<Level> levels;
   OinkSettings settings;
 
   // Problem dimensions
@@ -463,9 +484,12 @@ public:
   /// @brief Velocity indices of the joint group (used to scatter delta_q back into model.nv space).
   Eigen::VectorXi v_indices;
 
-  // Pre-allocated accumulated QP matrices
+  // Pre-allocated QP objective of the current priority level, and the regularization and barrier
+  // terms shared by all levels.
   Eigen::MatrixXd H;
   Eigen::VectorXd c;
+  Eigen::MatrixXd H_base;
+  Eigen::VectorXd c_base;
 
   // Pre-allocated constraint matrices
   Eigen::MatrixXd constraint_workspace_A;
@@ -482,17 +506,15 @@ public:
   Eigen::MatrixXd barrier_H_contribution;
   Eigen::VectorXd barrier_c_contribution;
 
-  // Cumulative unweighted Jacobian stack of the priority levels processed so far, and the
-  // nullspace projector N built from it (damped pseudoinverse), which projects the NEXT
-  // priority level's Jacobian into the higher levels' nullspace.
-  Eigen::MatrixXd jacobian_stack;
-  Eigen::MatrixXd nullspace_projector;
+  // Nullspace cascade scratch: the previous level's solution and the soft nullspace penalty,
+  // Σ ρ·JᵀJ of the levels solved so far and the matching -ρ·JᵀJ·Δq* linear terms.
+  Eigen::VectorXd previous_delta_q;
+  Eigen::MatrixXd nullspace_penalty_H;
+  Eigen::VectorXd nullspace_penalty_c;
 
-  // Per-task scratch: W·J·N and W·(α·e). Resized per task (dims depend on task rows); steady-state
-  // calls reuse the existing allocation when sizes match across iterations and across solveIk
-  // calls.
-  Eigen::MatrixXd projected_weighted_jacobian;
-  Eigen::VectorXd weighted_error;
+  // Selective singularity damping scratch for addTaskContribution(): the eigensolver and V·D.
+  Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> task_eig;
+  Eigen::MatrixXd task_VD;
 
   // Pre-allocated, priority-sorted view into the tasks passed to solveIk. Reusing this buffer
   // avoids heap traffic on the hot path; capacity persists across calls.
