@@ -220,25 +220,27 @@ Tracks a target 6-DOF pose (position + orientation).
 
    W = \text{diag}(\sqrt{w_{\text{pos}}} \cdot I_3, \sqrt{w_{\text{rot}}} \cdot I_3)
 
-+--------------------------+-----------------------------------+-----------+
-| Parameter                | Description                       | Default   |
-+==========================+===================================+===========+
-| ``position_cost``        | Position error weight             | 1.0       |
-+--------------------------+-----------------------------------+-----------+
-| ``orientation_cost``     | Orientation error weight          | 1.0       |
-+--------------------------+-----------------------------------+-----------+
-| ``task_gain``            | Low-pass filter gain              | 1.0       |
-|                          | :math:`\alpha`                    |           |
-+--------------------------+-----------------------------------+-----------+
-| ``lm_damping``           | Levenberg-Marquardt damping       | 0.0       |
-+--------------------------+-----------------------------------+-----------+
-| ``max_position_error``   | Saturation limit (meters)         | ∞         |
-+--------------------------+-----------------------------------+-----------+
-| ``max_rotation_error``   | Saturation limit (radians)        | ∞         |
-+--------------------------+-----------------------------------+-----------+
-| ``priority``             | Priority level (1 = highest;      | 1         |
-|                          | see Task Priorities)              |           |
-+--------------------------+-----------------------------------+-----------+
++------------------------------+-----------------------------------------------------+-----------+
+| Parameter                    | Description                                         | Default   |
++==============================+=====================================================+===========+
+| ``position_cost``            | Position error weight                               | 1.0       |
++------------------------------+-----------------------------------------------------+-----------+
+| ``orientation_cost``         | Orientation error weight                            | 1.0       |
++------------------------------+-----------------------------------------------------+-----------+
+| ``task_gain``                | Low-pass filter gain :math:`\alpha`                 | 1.0       |
++------------------------------+-----------------------------------------------------+-----------+
+| ``lm_damping``               | Levenberg-Marquardt damping                         | 0.0       |
++------------------------------+-----------------------------------------------------+-----------+
+| ``position_saturation``      | Per-step error cap (meters)                         | ∞         |
++------------------------------+-----------------------------------------------------+-----------+
+| ``orientation_saturation``   | Per-step error cap (radians)                        | ∞         |
++------------------------------+-----------------------------------------------------+-----------+
+| ``position_tolerance``       | Convergence tolerance (meters)                      | 0.001     |
++------------------------------+-----------------------------------------------------+-----------+
+| ``orientation_tolerance``    | Convergence tolerance (radians)                     | 0.001     |
++------------------------------+-----------------------------------------------------+-----------+
+| ``priority``                 | Priority level (1 = highest; see Task Priorities)   | 1         |
++------------------------------+-----------------------------------------------------+-----------+
 
 ConfigurationTask
 """""""""""""""""
@@ -614,7 +616,7 @@ Usage Example
        orientation_cost=0.1,
        task_gain=1.0,
        lm_damping=0.01,
-       max_position_error=0.1,               # keeps the CBF linearization valid
+       position_saturation=0.1,  # caps each step; unneeded with a VelocityLimit
    ))
 
    # Lower-priority posture regularization. priority=2 solves it after the FrameTask,
@@ -671,3 +673,27 @@ Usage Example
 
    q_next = scene.integrate(scene.getCurrentJointPositions(), delta_q_full)
    scene.setJointPositions(q_next)
+
+Iterative Solves
+^^^^^^^^^^^^^^^^
+
+``solveIk`` computes one step.
+``solveIterativeIk`` repeats it from a start configuration until every *goal task* is within its own tolerance, every constraint's ``computeViolation`` is within tolerance, and every barrier is non-negative.
+It restarts from a random configuration when the error stops improving short of that.
+Each task reports its progress through ``normalizedError``, its error divided by its own tolerances (e.g., ``position_tolerance`` and ``orientation_tolerance`` on a ``FrameTask``), so a value of at most 1 means reached; a custom task implements this alongside ``computeError``.
+Tasks that only regularize, such as a nullspace ``ConfigurationTask``, go in ``extra_tasks`` so they are solved but not required to converge.
+While collision avoidance during solves is opt-in through a ``SelfCollisionBarrier``, this barrier only evaluates its closest pairs, so ``check_collisions=True`` adds a full collision check of the solution.
+
+.. code-block:: python
+
+   from roboplan.optimal_ik import IterativeSolveOptions
+
+   options = IterativeSolveOptions()
+   options.max_restarts = 5
+   q_solution = oink.solveIterativeIk(
+       q_start, [frame_task], extra_tasks=[posture_task],
+       constraints=constraints, barriers=barriers, options=options,
+   )  # raises RuntimeError if no solution is found
+
+A hard ``RelativePoseConstraint`` pulls a random restart back onto its manifold, so a bimanual grasp can be solved with one goal task for one hand and the constraint holding the other.
+``fast_return=False`` keeps iterating past the tolerances while the error still improves; the Cartesian planner uses this to resolve each path sample to the solver's precision.
